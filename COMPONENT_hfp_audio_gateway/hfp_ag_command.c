@@ -234,7 +234,7 @@ static uint8_t _send_result_to_hf (hfp_ag_session_cb_t *p_scb, UINT8 code, char 
     *p++ = '\n';
 
     /* send to RFCOMM */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     ret = wiced_bt_rfcomm_write_data( p_scb->rfc_conn_handle, buf, ( uint16_t )( p - buf ) );
 #else
     ret = wiced_bt_rfcomm_write_data( p_scb->rfc_conn_handle, buf, ( uint16_t )( p - buf ), &len );

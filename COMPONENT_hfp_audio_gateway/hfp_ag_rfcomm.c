@@ -48,7 +48,7 @@ static void hfp_ag_rfcomm_acceptor_opened( hfp_ag_session_cb_t *p_scb );
 void hfp_ag_rfcomm_do_open( hfp_ag_session_cb_t *p_scb );
 extern void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status );
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 /*
  * RFCOMM TX complete callback
  */
@@ -61,7 +61,7 @@ void hfp_ag_rfcomm_port_tx_cmpl_cback(uint16_t handle, void *p_data)
 /*
  * Process RFCOMM data received from the peer
  */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 void hfp_ag_rfcomm_data_callback( wiced_bt_rfcomm_port_event_t code, uint16_t handle )
 {
     hfp_ag_session_cb_t *p_scb = hfp_ag_find_scb_by_rfc_handle( handle, HFP_FLAG_RFCOMM_DATA );
@@ -171,7 +171,7 @@ static void hfp_ag_rfcomm_control_callback( uint32_t port_status, uint16_t port_
 
     if ( ( port_status == WICED_BT_RFCOMM_SUCCESS ) && ( p_scb->state != HFP_AG_STATE_CLOSING) )
     {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         wiced_bt_rfcomm_set_event_callback(port_handle,
                 hfp_ag_rfcomm_data_callback,
                 hfp_ag_rfcomm_port_tx_cmpl_cback);
@@ -182,7 +182,7 @@ static void hfp_ag_rfcomm_control_callback( uint32_t port_status, uint16_t port_
         i = p_scb->state;
         p_scb->state = HFP_AG_STATE_OPEN;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         wiced_bt_rfcomm_set_rx_fifo (port_handle, (char *)p_scb->rfcomm_fifo,
                 sizeof (p_scb->rfcomm_fifo));
 #endif

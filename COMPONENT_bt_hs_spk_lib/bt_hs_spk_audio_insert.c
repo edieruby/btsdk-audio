@@ -102,29 +102,21 @@ static void bt_hs_spk_audio_insert_timer_callback(uint32_t param);
  */
 wiced_result_t bt_hs_spk_audio_insert_init(void)
 {
-    wiced_result_t status;
-
     APP_TRACE_DBG("\n");
 
     memset(&bt_hs_spk_audio_insert_cb, 0, sizeof(bt_hs_spk_audio_insert_cb));
 
-    status = wiced_init_timer(&bt_hs_spk_audio_insert_cb.timer,
+    wiced_init_timer(&bt_hs_spk_audio_insert_cb.timer,
             bt_hs_spk_audio_insert_timer_callback, 0, WICED_MILLI_SECONDS_TIMER);
-    if (status != WICED_BT_SUCCESS)
-    {
-        APP_TRACE_ERR("wiced_init_timer failed status:%d\n", status);
-        return status;
-    }
 
     wiced_bt_audio_insert_init();
 
-    return status;
+    return WICED_BT_SUCCESS;
 }
 
 static void bt_hs_spk_audio_insert_start_sco(void)
 {
     wiced_bt_audio_insert_config_t audio_insert_config = {0};
-    wiced_result_t status;
     bt_hs_spk_handsfree_active_call_session_info_t call_session_info;
 
     audio_insert_config.type                                                    = WICED_BT_AUDIO_INSERT_TYPE_SCO_SPK;
@@ -146,14 +138,8 @@ static void bt_hs_spk_audio_insert_start_sco(void)
 
     if (bt_hs_spk_audio_insert_cb.p_config->duration)
     {
-        status = wiced_start_timer(&bt_hs_spk_audio_insert_cb.timer,
-                                   bt_hs_spk_audio_insert_cb.p_config->duration);
-
-        if (status != WICED_SUCCESS)
-        {
-            APP_TRACE_ERR("wiced_start_timer failed status:%d\n", status);
-            return;
-        }
+        wiced_start_timer(&bt_hs_spk_audio_insert_cb.timer,
+                          bt_hs_spk_audio_insert_cb.p_config->duration);
     }
 
     wiced_bt_audio_insert_start(&audio_insert_config);
@@ -184,7 +170,6 @@ static void bt_hs_spk_audio_insert_start_audio(void)
 {
     wiced_bt_audio_insert_config_t audio_insert_config = {0};
     audio_config_t audio_config;
-    wiced_result_t status;
 
     audio_insert_config.type                                                    = WICED_BT_AUDIO_INSERT_TYPE_AUDIO;
     audio_insert_config.p_sample_rate                                           = &bt_hs_spk_audio_insert_cb.p_config->sample_rate;
@@ -203,14 +188,8 @@ static void bt_hs_spk_audio_insert_start_audio(void)
 
     if (bt_hs_spk_audio_insert_cb.p_config->duration)
     {
-        status = wiced_start_timer(&bt_hs_spk_audio_insert_cb.timer,
-                                   bt_hs_spk_audio_insert_cb.p_config->duration);
-
-        if (status != WICED_SUCCESS)
-        {
-            APP_TRACE_ERR("wiced_start_timer failed status:%d\n", status);
-            return;
-        }
+        wiced_start_timer(&bt_hs_spk_audio_insert_cb.timer,
+                          bt_hs_spk_audio_insert_cb.p_config->duration);
     }
 
     wiced_bt_audio_insert_start(&audio_insert_config);
@@ -307,11 +286,7 @@ wiced_result_t bt_hs_spk_audio_insert_stop(void)
 
     if (wiced_is_timer_in_use(&bt_hs_spk_audio_insert_cb.timer))
     {
-        if (wiced_stop_timer(&bt_hs_spk_audio_insert_cb.timer) != WICED_BT_SUCCESS)
-        {
-            APP_TRACE_ERR("wiced_stop_timer failed\n");
-            return WICED_BT_ERROR;
-        }
+        wiced_stop_timer(&bt_hs_spk_audio_insert_cb.timer);
     }
 
     if (bt_hs_spk_audio_insert_cb.sco_hook_registered)

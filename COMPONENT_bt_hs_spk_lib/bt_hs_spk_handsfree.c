@@ -429,6 +429,7 @@ void handsfree_hfp_init(bt_hs_spk_control_config_hfp_t *p_config, BT_HS_SPK_CONT
 
     bt_hs_spk_handsfree_cb.p_local_volume_change_cb = p_vol_chg_cb;
 
+#ifndef BTSTACK_VER
     /* Perform the rfcomm init before hf and spp start up */
     result = wiced_bt_rfcomm_set_buffer_pool(p_config->rfcomm.buffer_size, p_config->rfcomm.buffer_count);
     if (result != WICED_BT_SUCCESS)
@@ -436,18 +437,13 @@ void handsfree_hfp_init(bt_hs_spk_control_config_hfp_t *p_config, BT_HS_SPK_CONT
         WICED_BT_TRACE("Error Initializing RFCOMM - HFP failed\n");
         return;
     }
+#endif
 
     /* Init. the SCO connecting duration protection timer. */
-    result = wiced_init_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
-                              bt_hs_spk_handsfree_sco_connecting_protection_timeout_cb,
-                              0,
-                              WICED_MILLI_SECONDS_TIMER);
-
-    if (result != WICED_SUCCESS)
-    {
-        WICED_BT_TRACE("Error Initializing SCO connecting protection timer (%d)\n", result);
-        return;
-    }
+    wiced_init_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
+                     bt_hs_spk_handsfree_sco_connecting_protection_timeout_cb,
+                     0,
+                     WICED_MILLI_SECONDS_TIMER);
 
     config.feature_mask     = p_config->feature_mask;
     config.speaker_volume   = bt_hs_spk_handsfree_speaker_volume_level_get(&bt_hs_spk_handsfree_cb.context[0]);
@@ -472,7 +468,6 @@ void handsfree_hfp_init(bt_hs_spk_control_config_hfp_t *p_config, BT_HS_SPK_CONT
 static void bt_hs_spk_handsfree_sco_management_callback_connection_request(handsfree_app_state_t *p_ctx, wiced_bt_management_evt_data_t *p_data)
 {
     wiced_bool_t sco_protected = WICED_FALSE;
-    wiced_result_t result;
 
     /* Check if SCO connecting/disconnecting protection timer is running*/
     if (wiced_is_timer_in_use(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer))
@@ -573,13 +568,8 @@ static void bt_hs_spk_handsfree_sco_management_callback_connection_request(hands
                                    (wiced_bt_sco_params_t *) &p_ctx->sco_params);
 
     /* Start the SCO connecting protection timer to protect this duration. */
-    result = wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
-                               BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
-
-    if (result != WICED_SUCCESS)
-    {
-        WICED_BT_TRACE("Error fail to start the SCO connecting protection timer (%d)\n", result);
-    }
+    wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
+                      BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
 }
 
 static void bt_hs_spk_handsfree_sco_management_callback_connected(handsfree_app_state_t *p_ctx, wiced_bt_management_evt_data_t *p_data)
@@ -957,7 +947,7 @@ static void bt_hs_spk_handsfree_event_handler_connection_state(handsfree_app_sta
          */
         if (BT_HS_SPK_CONTROL_BR_EDR_MAX_CONNECTIONS > 1)
         {
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
             bt_hs_spk_control_bt_role_set(p_data->conn_data.remote_address, HCI_ROLE_PERIPHERAL);
 #else
             bt_hs_spk_control_bt_role_set(p_data->conn_data.remote_address, HCI_ROLE_PERIPHERAL);
@@ -1027,10 +1017,19 @@ static void bt_hs_spk_handsfree_event_handler_codec_set(handsfree_app_state_t *p
 {
     wiced_bool_t update_audio_manager = WICED_FALSE;
 
-    WICED_BT_TRACE("HF Codec Set (%d, %d) (%d)\n",
+    if (bt_hs_spk_handsfree_cb.p_active_context != NULL)
+    {
+        WICED_BT_TRACE("HF Codec Set (%d, %d) (%d)\n",
                    bt_hs_spk_handsfree_cb.p_active_context->sco_index,
                    p_ctx->sco_index,
                    p_data->selected_codec);
+    }
+    else
+    {
+        WICED_BT_TRACE("HF Codec Set (NULL, %d) (%d)\n",
+                   p_ctx->sco_index,
+                   p_data->selected_codec);
+    }
 
     /* Check parameter. */
     if ((p_data->selected_codec != WICED_BT_HFP_HF_CVSD_CODEC) &&
@@ -2637,8 +2636,6 @@ static void bt_hs_spk_handsfree_speaker_volume_level_set(handsfree_app_state_t *
  */
 static wiced_bool_t bt_hs_spk_handsfree_outgoing_call_notification_handler(handsfree_app_state_t *p_ctx)
 {
-    wiced_result_t result;
-
     /* Check if active call session exists. */
     if (bt_hs_spk_handsfree_cb.p_active_context == NULL)
     {
@@ -2691,13 +2688,8 @@ static wiced_bool_t bt_hs_spk_handsfree_outgoing_call_notification_handler(hands
          * Hence, temporarily disconnect the active SCO/eSCO connection. */
 
         /* Start the SCO connecting/disconnecting protection timer to protect this duration. */
-        result = wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
-                               BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
-
-        if (result != WICED_SUCCESS)
-        {
-            WICED_BT_TRACE("Error fail to start the SCO connecting protection timer (%d)\n", result);
-        }
+        wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
+                          BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
 
         wiced_bt_sco_remove(bt_hs_spk_handsfree_cb.p_active_context->sco_index);
 
@@ -2712,13 +2704,8 @@ static wiced_bool_t bt_hs_spk_handsfree_outgoing_call_notification_handler(hands
          * Hence, temporarily disconnect the active SCO/eSCO connection. */
 
         /* Start the SCO connecting/disconnecting protection timer to protect this duration. */
-        result = wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
-                               BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
-
-        if (result != WICED_SUCCESS)
-        {
-            WICED_BT_TRACE("Error fail to start the SCO connecting protection timer (%d)\n", result);
-        }
+        wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
+                          BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
 
         wiced_bt_sco_remove(bt_hs_spk_handsfree_cb.p_active_context->sco_index);
 
@@ -2764,8 +2751,6 @@ static wiced_bool_t bt_hs_spk_handsfree_outgoing_call_notification_handler(hands
  */
 static wiced_bool_t bt_hs_spk_handsfree_incoming_call_notification_handler(handsfree_app_state_t *p_ctx)
 {
-    wiced_result_t result;
-
     /* Check if the active call session exists. */
     if (bt_hs_spk_handsfree_cb.p_active_context == NULL)
     {
@@ -2808,13 +2793,8 @@ static wiced_bool_t bt_hs_spk_handsfree_incoming_call_notification_handler(hands
          * Hence, temporarily disconnect the active SCO/eSCO connection. */
 
         /* Start the SCO connecting/disconnecting protection timer to protect this duration. */
-        result = wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
-                               BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
-
-        if (result != WICED_SUCCESS)
-        {
-            WICED_BT_TRACE("Error fail to start the SCO connecting protection timer (%d)\n", result);
-        }
+        wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
+                          BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
 
         wiced_bt_sco_remove(bt_hs_spk_handsfree_cb.p_active_context->sco_index);
 
@@ -2829,13 +2809,8 @@ static wiced_bool_t bt_hs_spk_handsfree_incoming_call_notification_handler(hands
          * Hence, temporarily disconnect the active SCO/eSCO connection. */
 
         /* Start the SCO connecting/disconnecting protection timer to protect this duration. */
-        result = wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
-                               BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
-
-        if (result != WICED_SUCCESS)
-        {
-            WICED_BT_TRACE("Error fail to start the SCO connecting protection timer (%d)\n", result);
-        }
+        wiced_start_timer(&bt_hs_spk_handsfree_cb.sco_connecting_protection_timer,
+                          BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT);
 
         wiced_bt_sco_remove(bt_hs_spk_handsfree_cb.p_active_context->sco_index);
 

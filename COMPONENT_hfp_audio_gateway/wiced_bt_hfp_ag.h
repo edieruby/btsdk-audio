@@ -43,7 +43,7 @@
 #include "wiced_bt_sdp.h"
 #include "wiced_timer.h"
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 #ifndef BOOLEAN
 #define BOOLEAN     uint32_t
 #endif
@@ -155,7 +155,7 @@ typedef struct
     BOOLEAN             cmer_enabled;           /* set to TRUE if HF enables CMER reporting */
     BOOLEAN             cmee_enabled;           /* set to TRUE if HF enables CME ERROR reporting */
     uint8_t             indicator_bit_map;      /* Indicator bit map */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     /* TODO : for now fifo size if fixed, need to update the required max memory for rfcomm_fifo */
     uint8_t             rfcomm_fifo[400];
 #endif

@@ -51,19 +51,6 @@ extern "C" {
 /******************************************************
  *                     Macros
  ******************************************************/
-#if BTSTACK_VER >= 0x01020000
-/* Pin configuration */
-#define GPIO_PULL_UP           WICED_GPIO_PULL_UP
-#define GPIO_PULL_DOWN         WICED_GPIO_PULL_DOWN
-#define GPIO_PULL_UP_DOWN_NONE WICED_GPIO_PULL_UP_DOWN_NONE
-/* GPIO interrupt trigger */
-#define GPIO_EN_INT_RISING_EDGE  WICED_GPIO_EN_INT_RISING_EDGE
-#define GPIO_EN_INT_FALLING_EDGE WICED_GPIO_EN_INT_FALLING_EDGE
-#define GPIO_EN_INT_BOTH_EDGE    WICED_GPIO_EN_INT_BOTH_EDGE
-#define GPIO_EN_INT_LEVEL_HIGH   WICED_GPIO_EN_INT_LEVEL_HIGH
-#define GPIO_EN_INT_LEVEL_LOW    WICED_GPIO_EN_INT_LEVEL_LOW
-#endif
-
 
 /******************************************************
  *                    Constants

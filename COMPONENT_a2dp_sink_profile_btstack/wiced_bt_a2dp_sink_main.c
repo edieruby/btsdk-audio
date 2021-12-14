@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -72,9 +72,9 @@ void wiced_bt_a2dp_sink_conn_cback(uint8_t handle,
         {
             WICED_BTA2DP_TRACE("%s: CONN_IND is ACP:%d \n", __FUNCTION__, p_data->hdr.err_param);
         }
-        str_msg.hdr.event = evt;
-        str_msg.hdr.layer_specific = event;
-        str_msg.hdr.offset = p_data->hdr.err_param;
+        str_msg.avdt_event = event;
+       // str_msg.hdr.layer_specific = event;
+        str_msg.hdr.err_param = p_data->hdr.err_param;
         str_msg.handle = handle;
         memcpy(str_msg.bd_addr, bd_addr, sizeof(wiced_bt_device_address_t));
         WICED_BTA2DP_TRACE("%s \n", __FUNCTION__);
@@ -82,7 +82,7 @@ void wiced_bt_a2dp_sink_conn_cback(uint8_t handle,
                       bd_addr[0], bd_addr[1],
                       bd_addr[2], bd_addr[3],
                       bd_addr[4], bd_addr[5]);
-        wiced_bt_a2dp_sink_hdl_event((BT_HDR*)&str_msg);
+        wiced_bt_a2dp_sink_hdl_event((uint8_t)evt, (wiced_bt_avdt_evt_hdr_t*)&str_msg.hdr);
     }
 }
 
@@ -116,7 +116,7 @@ static void wiced_bt_a2dp_sink_init_ccb(void)
 ** Returns          void
 **
 *******************************************************************************/
-void wiced_bt_a2dp_sink_api_deinit(wiced_bt_a2dp_sink_data_t *p_data)
+void wiced_bt_a2dp_sink_api_deinit(uint16_t avdt_event,wiced_bt_a2dp_sink_data_t *p_data)
 {
     wiced_bt_a2dp_sink_scb_t *p_scb = wiced_bt_a2dp_sink_cb.p_scb;
     uint8_t idx;
@@ -158,7 +158,7 @@ static wiced_bt_a2dp_sink_ccb_t *wiced_bt_a2dp_sink_alloc_ccb(
             wiced_bt_a2dp_sink_cb.ccb[idx].p_scb      = &(wiced_bt_a2dp_sink_cb.p_scb[idx]);
             wiced_bt_a2dp_sink_cb.ccb[idx].p_dt_cback = wiced_bt_a2dp_sink_ctrl_cback;
 
-            utl_bdcpy(wiced_bt_a2dp_sink_cb.ccb[idx].peer_addr,
+            wiced_bt_a2dp_sink_utils_bdcpy(wiced_bt_a2dp_sink_cb.ccb[idx].peer_addr,
                                            p_data->api_data.bd_address);
 
             WICED_BTA2DP_TRACE("%s: ccb_handle:%d \n", __FUNCTION__,
@@ -244,7 +244,7 @@ static wiced_bt_a2dp_sink_ccb_t *wiced_bt_a2dp_sink_get_ccb_by_bd_addr(
     for(idx = 0; idx < WICED_BT_A2DP_SINK_MAX_NUM_CONN; idx++)
     {
         if(wiced_bt_a2dp_sink_cb.ccb[idx].in_use == WICED_TRUE &&
-            !utl_bdcmp(wiced_bt_a2dp_sink_cb.ccb[idx].peer_addr, bd_addr))
+            !wiced_bt_a2dp_sink_utils_bdcmp(wiced_bt_a2dp_sink_cb.ccb[idx].peer_addr, bd_addr))
         {
             WICED_BTA2DP_TRACE("wiced_bt_a2dp_sink_get_ccb_by_bd_addr idx:%d \n", idx);
             p_ccb = &wiced_bt_a2dp_sink_cb.ccb[idx];
@@ -360,7 +360,7 @@ static wiced_bt_a2dp_sink_ccb_t *wiced_bt_a2dp_sink_get_ccb(uint16_t event,
     default:
 #if (defined(WICED_BT_A2DP_SINK_DEBUG) && WICED_BT_A2DP_SINK_DEBUG == TRUE)
         WICED_BTA2DP_TRACE("%s: Unknown event %s \n", __FUNCTION__,
-            wiced_bt_a2dp_sink_evt_code(event));
+            wiced_bt_a2dp_sink_evt_code((uint8_t)event));
 #endif
         break;
     }
@@ -376,20 +376,17 @@ static wiced_bt_a2dp_sink_ccb_t *wiced_bt_a2dp_sink_get_ccb(uint16_t event,
 ** Returns          void
 **
 *******************************************************************************/
-static void wiced_bt_a2dp_sink_sig_change(wiced_bt_a2dp_sink_data_t *p_data)
+static void wiced_bt_a2dp_sink_sig_change(uint16_t avdt_event, wiced_bt_a2dp_sink_data_t *p_data)
 {
-    uint16_t event = p_data->str_msg.hdr.layer_specific;
     wiced_bt_a2dp_sink_ccb_t *p_ccb = NULL;
 
-    WICED_BTA2DP_TRACE("%s event: %d bd_addr:%02x-%02x-%02x-%02x-%02x-%02x \n", __FUNCTION__, event,
+    WICED_BTA2DP_TRACE("%s event: %d bd_addr:%02x-%02x-%02x-%02x-%02x-%02x \n", __FUNCTION__, avdt_event,
                       p_data->str_msg.bd_addr[0], p_data->str_msg.bd_addr[1],
                       p_data->str_msg.bd_addr[2], p_data->str_msg.bd_addr[3],
                       p_data->str_msg.bd_addr[4], p_data->str_msg.bd_addr[5]);
 
-    if (event == AVDT_CONNECT_IND_EVT)
+    if (p_data->str_msg.avdt_event == AVDT_CONNECT_IND_EVT)
     {
-        if (p_data->str_msg.hdr.offset == AVDT_ACP)
-        {
             WICED_BTA2DP_TRACE("Incoming L2CAP acquired, set state as sig open \n");
 
             /* Find ccb by bd_addr */
@@ -401,7 +398,7 @@ static void wiced_bt_a2dp_sink_sig_change(wiced_bt_a2dp_sink_data_t *p_data)
             else
             {
                 /* If cannot find, connection is initiated by peer, allocate a new ccb */
-                utl_bdcpy(p_data->api_data.bd_address,
+                wiced_bt_a2dp_sink_utils_bdcpy(p_data->api_data.bd_address,
                                                p_data->str_msg.bd_addr);
                 if ((p_ccb = wiced_bt_a2dp_sink_alloc_ccb(p_data)) != NULL)
                 {
@@ -409,8 +406,6 @@ static void wiced_bt_a2dp_sink_sig_change(wiced_bt_a2dp_sink_data_t *p_data)
                         WICED_BT_A2DP_SINK_AVDT_CONNECT_EVT);
                 }
             }
-        }
-
     }
     else
     {
@@ -432,7 +427,7 @@ static void wiced_bt_a2dp_sink_sig_change(wiced_bt_a2dp_sink_data_t *p_data)
 ** Returns          void
 **
 *******************************************************************************/
-static void wiced_bt_a2dp_sink_report_conn(wiced_bt_a2dp_sink_data_t *p_data)
+static void wiced_bt_a2dp_sink_report_conn(uint16_t avdt_event,wiced_bt_a2dp_sink_data_t *p_data)
 {
     WICED_BTA2DP_TRACE("%s \n", __FUNCTION__);
 }
@@ -455,9 +450,8 @@ const wiced_bt_a2sp_sink_nsm_act_t wiced_bt_a2dp_sink_nsm_act[] =
 ** Returns          wiced_bool_t
 **
 *******************************************************************************/
-void wiced_bt_a2dp_sink_hdl_event(BT_HDR *p_msg)
+void wiced_bt_a2dp_sink_hdl_event(uint8_t event,wiced_bt_avdt_evt_hdr_t *p_msg)
 {
-    uint8_t event = (uint8_t)p_msg->event;
     wiced_bt_a2dp_sink_data_t *p_data = (wiced_bt_a2dp_sink_data_t *)p_msg;
     wiced_bt_a2dp_sink_ccb_t *p_ccb = NULL;
 
@@ -469,14 +463,14 @@ void wiced_bt_a2dp_sink_hdl_event(BT_HDR *p_msg)
     if(event < WICED_BT_A2DP_SINK_GLOBAL_EVT_END)
     {
         /* Non state machine events */
-        (*wiced_bt_a2dp_sink_nsm_act[event])(p_data);
+        (*wiced_bt_a2dp_sink_nsm_act[event])(event, p_data);
     }
     else
     {
         /* State machine events */
         if ((p_ccb = wiced_bt_a2dp_sink_get_ccb(event, p_data)) != NULL)
         {
-            wiced_bt_a2dp_sink_ssm_execute(p_ccb, p_data, p_msg->event);
+            wiced_bt_a2dp_sink_ssm_execute(p_ccb, p_data, event);
         }
         else
         {
@@ -516,11 +510,8 @@ static void wiced_bt_a2dp_sink_reg_a2dp(wiced_bt_avdt_cs_t *p_cs, wiced_bt_a2dp_
 
     p_cs->cfg.psc_mask  = AVDT_PSC_TRANS;
     p_cs->media_type    = AVDT_MEDIA_AUDIO;
-#if BTSTACK_VER >= 0x03000001
     p_cs->p_avdt_ctrl_cback  = wiced_bt_a2dp_sink_ctrl_cback;
-#else
-    p_cs->p_ctrl_cback  = wiced_bt_a2dp_sink_ctrl_cback;
-#endif
+    p_cs->p_avdt_data_cback = wiced_bt_a2dp_sink_data_cback;
 
     if (wiced_bt_a2dp_sink_cb.p_config_data->feature_mask & WICED_BT_A2DP_SINK_FEAT_DELAY_RPT)
     {

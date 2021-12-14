@@ -57,6 +57,7 @@ uint32_t bt_hs_spk_sleep_handler(wiced_sleep_poll_type_t type );
 /*Initialize BT sleep modes for power management */
 wiced_result_t bt_hs_spk_pm_init(bt_hs_spk_control_config_sleep_t *p_config)
 {
+#if !defined(CYW55572A1)
     wiced_sleep_config_t sleep_config;
 
     WICED_BT_TRACE("%s\n",__func__);
@@ -73,6 +74,7 @@ wiced_result_t bt_hs_spk_pm_init(bt_hs_spk_control_config_sleep_t *p_config)
         WICED_BT_TRACE("%s failed\n",__func__);
         return WICED_ERROR;
     }
+#endif
 
     /*default sleep is allowed until app enables*/
     bt_hs_spk_pm_enable();

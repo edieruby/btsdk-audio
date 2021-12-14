@@ -36,14 +36,6 @@ This repo contains audio libraries used in BTSDK 2.0 or higher. The libraries in
     * Audio Insert Funtionality<br/>
 
 
-* button_manager<br/>
-    * Button Management Support<br/>
-
-
-* led_manager<br/>
-    * LED Management Support<br/>
-
-
 * audiomanager<br/>
     * Audio Manager<br/>
 
@@ -69,4 +61,4 @@ This repo contains audio libraries used in BTSDK 2.0 or higher. The libraries in
 
 
 * audio_uart<br/>
-    * WICED HCI Control of Audio Streaming<br/>
+    * AIROC&#8482; HCI Control of Audio Streaming<br/>

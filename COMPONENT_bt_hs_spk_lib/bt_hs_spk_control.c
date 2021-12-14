@@ -49,7 +49,9 @@
 #include "wiced_transport.h"
 #include "wiced_bt_a2dp_sink.h"
 #include "platform_led.h"
+#ifndef PLATFORM_LED_DISABLED
 #include "wiced_led_manager.h"
+#endif // !PLATFORM_LED_DISABLED
 #include "wiced_audio_manager.h"
 #include "bt_hs_spk_button.h"
 #include "bt_hs_spk_handsfree.h"
@@ -130,6 +132,7 @@ typedef struct
         uint8_t                             reason;
         wiced_bt_device_address_t           bdaddr;
         BT_HS_SPK_CONTROL_RECONNECT_STATE_t state;
+        wiced_bool_t                        is_profile_connecting;
 
         struct
         {
@@ -259,7 +262,7 @@ void bt_hs_spk_control_hci_packet_cback( wiced_bt_hci_trace_type_t type, uint16_
 {
 #if (WICED_HCI_TRANSPORT == WICED_HCI_TRANSPORT_UART)
     // send the trace
-#ifdef NEW_DYNAMIC_MEMORY_INCLUDED
+#if BTSTACK_VER >= 0x03000001
     wiced_transport_send_hci_trace(type, p_data, length);
 #else
     wiced_transport_send_hci_trace( NULL, type, length, p_data  );
@@ -319,7 +322,7 @@ wiced_result_t bt_hs_spk_write_eir(bt_hs_spk_eir_config_t *p_config)
     UINT8_TO_STREAM(p, 0x00);
 
     // print EIR data
-    wiced_bt_trace_array( "EIR :", ( uint8_t* )( buffer+1 ), MIN( p-( uint8_t* )buffer,100 ) );
+    WICED_BT_TRACE_ARRAY( ( uint8_t* )( buffer+1 ), MIN( p-( uint8_t* )buffer,100 ), "EIR :");
     if(wiced_bt_dev_write_eir( buffer, (uint16_t)(p - buffer) ) != WICED_SUCCESS)
     {
         WICED_BT_TRACE("dev_write_eir failed\n");
@@ -470,7 +473,7 @@ static wiced_bool_t bt_hs_spk_control_connection_status_update_br_edr(wiced_bt_d
         {   // disconnected -> connected
             /* Maintain ACL Connection information */
             p_target->acl.power_mode            = WICED_POWER_STATE_ACTIVE;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
             p_target->acl.link_policy           = HCI_ENABLE_ROLE_SWITCH | \
                                                   HCI_ENABLE_SNIFF_MODE;
 #else
@@ -505,7 +508,7 @@ static wiced_bool_t bt_hs_spk_control_connection_status_update_br_edr(wiced_bt_d
             p_target->reason                    = reason;
 
             /* Enable role switch and sniff mode. */
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
             bt_hs_spk_control_acl_link_policy_set(bd_addr, HCI_ENABLE_ROLE_SWITCH | HCI_ENABLE_SNIFF_MODE);
 #else
             bt_hs_spk_control_acl_link_policy_set(bd_addr, HCI_ENABLE_ROLE_SWITCH | HCI_ENABLE_SNIFF_MODE);
@@ -534,14 +537,11 @@ static wiced_bool_t bt_hs_spk_control_connection_status_update_br_edr(wiced_bt_d
  */
 void bt_hs_spk_control_connection_status_callback (wiced_bt_device_address_t bd_addr, uint8_t *p_features, wiced_bool_t is_connected, uint16_t handle, wiced_bt_transport_t transport, uint8_t reason)
 {
-    wiced_result_t result = WICED_ERROR;
-
-    WICED_BT_TRACE("%s %B is_connected:%d reason:0x%x result:%d handle: %d, transport:%d\n",
+    WICED_BT_TRACE("%s %B is_connected:%d reason:0x%x handle: %d, transport:%d\n",
                    __FUNCTION__,
                    bd_addr,
                    is_connected,
                    reason,
-                   result,
                    handle,
                    transport);
 
@@ -600,15 +600,8 @@ void bt_hs_spk_control_connection_status_callback (wiced_bt_device_address_t bd_
                 if (bt_hs_spk_audio_streaming_check(NULL) == WICED_ALREADY_CONNECTED)
                 {
                     /* trigger a timer to check for connection parameter if audio is streaming */
-                    result = wiced_start_timer(&bt_hs_spk_control_cb.ble_conn_param_check_timer,
-                                               BLE_CONN_PARAM_CHECK_DURATION_MS);
-
-                    if (result != WICED_BT_SUCCESS)
-                    {
-                        WICED_BT_TRACE("Err: fail to start ble conn param check timer (%d)\n", result);
-                    }
-
-                    (void) result;
+                    wiced_start_timer(&bt_hs_spk_control_cb.ble_conn_param_check_timer,
+                                      BLE_CONN_PARAM_CHECK_DURATION_MS);
                 }
             }
         }
@@ -634,7 +627,7 @@ static void bt_hs_spk_control_link_key_display(void)
 
     for (i = 0 ; i < BT_HS_SPK_CONTROL_LINK_KEY_COUNT ; i++)
     {
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
         WICED_BT_TRACE("%d: %B %B (BT ", i,
                 bt_hs_spk_control_cb.linkey[i].bd_addr,
                 bt_hs_spk_control_cb.linkey[i].conn_addr);
@@ -785,7 +778,7 @@ wiced_result_t bt_hs_spk_post_stack_init(bt_hs_spk_control_config_t *p_config)
     if (result != WICED_BT_SUCCESS)
     {
         WICED_BT_TRACE("btheadset_post_bt_init: bt_hs_spk_audio_insert_init failed\n");
-        return WICED_BT_ERROR;
+        return result;
     }
 #endif
 
@@ -793,25 +786,16 @@ wiced_result_t bt_hs_spk_post_stack_init(bt_hs_spk_control_config_t *p_config)
     wiced_bt_dev_register_vse_callback(bt_hs_spk_control_vse_handler);
 
     /* Initialize the reconnect reset timer. */
-    result = wiced_init_timer(&bt_hs_spk_control_cb.reconnect_reset_timer,
-                              bt_hs_spk_control_reconnect_timeout_callback,
-                              0,
-                              WICED_SECONDS_TIMER);
-
-    if (result != WICED_SUCCESS)
-    {
-        WICED_BT_TRACE("Err: fail to initialize reconnect reset timer (%d)\n", result);
-    }
+    wiced_init_timer(&bt_hs_spk_control_cb.reconnect_reset_timer,
+                     bt_hs_spk_control_reconnect_timeout_callback,
+                     0,
+                     WICED_SECONDS_TIMER);
 
     /* Initialize the reconnect reset timer. */
-    result = wiced_init_timer(&bt_hs_spk_control_cb.ble_conn_param_check_timer,
-                              bt_hs_spk_control_ble_conn_param_check_timer_callback,
-                              0,
-                              WICED_MILLI_SECONDS_TIMER);
-    if (result != WICED_SUCCESS)
-    {
-        WICED_BT_TRACE("Err: fail to initialize LE conn param check timer (%d)\n", result);
-    }
+    wiced_init_timer(&bt_hs_spk_control_cb.ble_conn_param_check_timer,
+                     bt_hs_spk_control_ble_conn_param_check_timer_callback,
+                     0,
+                     WICED_MILLI_SECONDS_TIMER);
 
     return result;
 }
@@ -1024,6 +1008,8 @@ void bt_hs_spk_control_reconnect(void)
                 bt_hs_spk_control_cb.reconnect.info[i].reason = HCI_SUCCESS;
             }
 
+            bt_hs_spk_control_cb.reconnect.info[i].is_profile_connecting = WICED_FALSE;
+
             WICED_BT_TRACE("%B (0x%2x)\n",
                            bt_hs_spk_control_cb.reconnect.info[i].bdaddr,
                            bt_hs_spk_control_cb.reconnect.info[i].reason);
@@ -1084,52 +1070,112 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
     switch (bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].state)
     {
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_IDLE:
+#ifndef CYW55572
         result = wiced_bt_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+#else
+        // For CYW55572, use wiced_bt_hfp_hf_connect trigger ACL connection and starts connection encryption
+        if ( bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting == WICED_FALSE )
+        {
+            WICED_BT_TRACE("%s:Reconnect HFP\n", __FUNCTION__);
+            status = wiced_bt_hfp_hf_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+            if ( status != WICED_SUCCESS )
+            {
+                WICED_BT_TRACE("wiced_bt_hfp_hf_connect fail (%d)\n", status);
+            }
+            else
+            {
+                result = WICED_TRUE;
+            }
+        }
+#endif
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_ACL:
+        WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_ACL\n", __FUNCTION__);
+#ifndef CYW55572
         hci_handle = wiced_bt_conn_handle_get(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr, BT_TRANSPORT_BR_EDR);
 
         if (hci_handle != 0xFFFF)
         {
             result = wiced_bt_start_authentication(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr, hci_handle);
         }
+#else
+        result = WICED_TRUE;
+#endif
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_AUTH:
+        WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_AUTH\n", __FUNCTION__);
+#ifndef CYW55572
         result = wiced_bt_start_encryption(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+#else
+        result = WICED_TRUE;
+#endif
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_ENC:
-        result = WICED_TRUE;
+        WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_ENC=%d\n", __FUNCTION__, bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting);
 
-        /* Reconnect HFP. */
-        status = wiced_bt_hfp_hf_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
-        if (status != WICED_SUCCESS)
+        if ( bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting == WICED_FALSE )
         {
-            WICED_BT_TRACE("wiced_bt_hfp_hf_connect fail (%d)\n", status);
-            result = WICED_FALSE;
+            WICED_BT_TRACE("%s:start to connect profile\n", __FUNCTION__);
+            /* Start to connect profile */
+            bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting = WICED_TRUE;
+            result = WICED_TRUE;
+
+#ifndef CYW55572
+            /* Reconnect HFP. */
+            status = wiced_bt_hfp_hf_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+            if (status != WICED_SUCCESS)
+            {
+                WICED_BT_TRACE("wiced_bt_hfp_hf_connect fail (%d)\n", status);
+                result = WICED_FALSE;
+            }
+#endif
+
+            /* Reconnect A2DP. */
+            // NOTE: For CYW55572, only connecting a2dp sink profile in this step
+            status = wiced_bt_a2dp_sink_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+            if (status != WICED_SUCCESS)
+            {
+                WICED_BT_TRACE("wiced_bt_a2dp_sink_connect fail (%d)\n", status);
+                result = WICED_FALSE;
+            }
+
+#ifndef CYW55572
+            /* Reconnect AVRCP. */
+            status = wiced_bt_avrc_ct_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+            if ((status != WICED_BT_SUCCESS) &&
+                    (status != WICED_PENDING))
+            {
+                WICED_BT_TRACE("wiced_bt_avrc_ct_connect fail (%d)\n", status);
+                result = WICED_FALSE;
+            }
+
+            bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting = WICED_FALSE;
+#endif
         }
-
-        /* Reconnect A2DP. */
-        status = wiced_bt_a2dp_sink_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
-        if (status != WICED_SUCCESS)
+        else
         {
-            WICED_BT_TRACE("wiced_bt_a2dp_sink_connect fail (%d)\n", status);
-            result = WICED_FALSE;
-        }
-
-        /* Reconnect AVRCP. */
-        status = wiced_bt_avrc_ct_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
-        if ((status != WICED_BT_SUCCESS) &&
-            (status != WICED_PENDING))
-        {
-            WICED_BT_TRACE("wiced_bt_avrc_ct_connect fail (%d)\n", status);
-            result = WICED_FALSE;
+            WICED_BT_TRACE("Profiles are connecting.\n");
+            return;
         }
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_PROFILE:
+#ifdef CYW55572
+        // NOTE: For CYW55572, connecting avrcp profile in this step
+        result = WICED_TRUE;
+        /* Reconnect AVRCP. */
+        status = wiced_bt_avrc_ct_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
+        if ((status != WICED_BT_SUCCESS) &&
+                (status != WICED_PENDING))
+        {
+            WICED_BT_TRACE("wiced_bt_avrc_ct_connect fail (%d)\n", status);
+            result = WICED_FALSE;
+        }
+        bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting = WICED_FALSE;
+#endif
         break;
 
     default:
@@ -1146,10 +1192,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
         timeout = BT_HS_SPK_CONTROL_RECONNECT_RESET_TIMEOUT -
                   bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].state;
 
-        if (WICED_SUCCESS != wiced_start_timer(&bt_hs_spk_control_cb.reconnect_reset_timer, timeout))
-        {
-            WICED_BT_TRACE("Err: fail to start reconnection reset timer\n");
-        }
+        wiced_start_timer(&bt_hs_spk_control_cb.reconnect_reset_timer, timeout);
 
         bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].state++;
     }
@@ -1182,10 +1225,9 @@ static void bt_hs_spk_control_reconnect_out_of_range(void)
         {
             if (bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].hfp.connected == WICED_FALSE)
             {
+                bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].hfp.connecting = WICED_TRUE;
                 WICED_BT_TRACE("Try to reconnect HFP\n");
                 wiced_bt_hfp_hf_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
-
-                bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].hfp.connecting = WICED_TRUE;
 
                 return;
             }
@@ -1201,10 +1243,9 @@ static void bt_hs_spk_control_reconnect_out_of_range(void)
         {
             if (bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].a2dp.connected == WICED_FALSE)
             {
+                bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].a2dp.connecting = WICED_TRUE;
                 WICED_BT_TRACE("Try to reconnect A2DP\n");
                 wiced_bt_a2dp_sink_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
-
-                bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].a2dp.connecting = WICED_TRUE;
 
                 return;
             }
@@ -1220,10 +1261,9 @@ static void bt_hs_spk_control_reconnect_out_of_range(void)
         {
             if (bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].avrc.connected == WICED_FALSE)
             {
+                bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].avrc.connecting = WICED_TRUE;
                 WICED_BT_TRACE("Try to reconnect AVRCP\n");
                 wiced_bt_avrc_ct_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
-
-                bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].avrc.connecting = WICED_TRUE;
 
                 return;
             }
@@ -1379,7 +1419,7 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
             continue;
         }
 
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
         if (!memcmp(bt_hs_spk_control_cb.linkey[i].bd_addr, link_keys_update->bd_addr, sizeof(wiced_bt_device_address_t))
                 || !memcmp(bt_hs_spk_control_cb.linkey[i].conn_addr, link_keys_update->bd_addr, sizeof(wiced_bt_device_address_t)))
         {
@@ -1397,7 +1437,7 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
 
             goto BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_SORT_AND_WRITE;
         }
-#else /* !BTSTACK_VER > 0x01020000 */
+#else /* !BTSTACK_VER >= 0x03000001 */
         if (link_keys_update->key_data.ble_addr_type & BLE_ADDR_RANDOM)
         {
             if ( ( ((bt_hs_spk_control_cb.linkey[i].key_data.le_keys_available_mask & BTM_LE_KEY_PID)
@@ -1464,7 +1504,7 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
                                        sizeof(wiced_bt_link_key_t));
             goto BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_SORT_AND_WRITE;
         }
-#endif /* BTSTACK_VER > 0x01020000 */
+#endif /* BTSTACK_VER >= 0x03000001 */
     }
 
     /* Find a free space for this new link key. */
@@ -1473,7 +1513,7 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
         if (bt_hs_spk_control_misc_data_content_check((uint8_t *) bt_hs_spk_control_cb.linkey[i].bd_addr,
                                                       sizeof(wiced_bt_device_address_t)) == WICED_FALSE)
         {
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
             memcpy(&bt_hs_spk_control_cb.linkey[i], link_keys_update,
                     sizeof(bt_hs_spk_control_cb.linkey[i]));
 
@@ -1493,7 +1533,7 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
 
     /* Delete the least recently used value from the list and add the new value to the list. */
     i = BT_HS_SPK_CONTROL_LINK_KEY_COUNT - 1;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     memcpy(&bt_hs_spk_control_cb.linkey[i], link_keys_update,
             sizeof(bt_hs_spk_control_cb.linkey[i]));
 
@@ -1574,7 +1614,7 @@ static wiced_bool_t bt_hs_spk_control_link_key_get(wiced_bt_device_link_keys_t *
 
     for (i = 0 ; i < BT_HS_SPK_CONTROL_LINK_KEY_COUNT ; i++)
     {
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
         if (!memcmp(bt_hs_spk_control_cb.linkey[i].bd_addr, link_keys_request->bd_addr, sizeof(wiced_bt_device_address_t))
                 || !memcmp(bt_hs_spk_control_cb.linkey[i].conn_addr, link_keys_request->bd_addr, sizeof(wiced_bt_device_address_t)))
         {
@@ -1584,7 +1624,7 @@ static wiced_bool_t bt_hs_spk_control_link_key_get(wiced_bt_device_link_keys_t *
 
             return WICED_TRUE;
         }
-#else /* !BTSTACK_VER > 0x01020000 */
+#else /* !BTSTACK_VER >= 0x03000001 */
         if (link_keys_request->key_data.le_keys_available_mask != 0)
         {
             if (     ( (bt_hs_spk_control_cb.linkey[i].key_data.le_keys_available_mask & BTM_LE_KEY_PID)
@@ -2441,7 +2481,7 @@ void bt_hs_spk_control_acl_link_policy_sniff_mode_set(wiced_bt_device_address_t 
  *
  * @param bdaddr - connection with peer device
  * @param link_policy - HCI_DISABLE_ALL_LM_MODES
- *                      HCI_ENABLE_ROLE_SWITCH (HCI_ENABLE_ROLE_SWITCH if BTSTACK_VER > 0x01020000)
+ *                      HCI_ENABLE_ROLE_SWITCH (HCI_ENABLE_ROLE_SWITCH if BTSTACK_VER >= 0x03000001)
  *                      HCI_ENABLE_HOLD_MODE
  *                      HCI_ENABLE_SNIFF_MODE
  *                      HCI_ENABLE_PARK_MODE
@@ -2621,7 +2661,7 @@ wiced_result_t bt_hs_spk_control_bt_role_set(wiced_bt_device_address_t bdaddr, u
         return WICED_BT_BADARG;
     }
 
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     if ((target_role != HCI_ROLE_CENTRAL) &&
         (target_role != HCI_ROLE_PERIPHERAL))
     {

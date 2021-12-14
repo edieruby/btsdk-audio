@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -45,10 +45,10 @@
 #if defined(CYW20719B1) || defined(CYW20721B1) || defined(CYW20721B2) || defined(CYW43012C0) || defined(CYW20706A2)
 #include "wiced_bt_event.h"
 #endif
-#include "wiced_bt_utils.h"
 
 extern wiced_bool_t wiced_bt_hfp_close_rfcomm_server_port();
 extern wiced_bool_t wiced_bt_hfp_open_rfcomm_server_port();
+extern char *utl_strcpy( char *p_dst, char *p_src );
 
 /*******************************************************************************
 ** Function         wiced_bt_hfp_hf_rfcomm_mgmt_cback
@@ -56,7 +56,7 @@ extern wiced_bool_t wiced_bt_hfp_open_rfcomm_server_port();
 *******************************************************************************/
 void wiced_bt_hfp_hf_rfcomm_mgmt_cback(wiced_bt_rfcomm_result_t code, uint16_t handle)
 {
-    BT_HDR                    msg;
+    wiced_bt_hfp_rfcomm_evt_t                    msg;
     wiced_result_t            res = WICED_SUCCESS;
     wiced_bt_device_address_t bd_addr;
     wiced_bt_hfp_hf_scb_t    *p_scb = NULL;
@@ -87,47 +87,42 @@ void wiced_bt_hfp_hf_rfcomm_mgmt_cback(wiced_bt_rfcomm_result_t code, uint16_t h
             p_scb->rfcomm_handle = handle;
             p_scb->is_server = TRUE;
 
-#if BTSTACK_VER >= 0x03000001
             wiced_bt_rfcomm_set_rx_fifo (handle, (char *)p_scb->rfcomm_fifo, sizeof (p_scb->rfcomm_fifo));
-#endif
         }
 
-        utl_bdcpy(p_scb->peer_addr, bd_addr);
-        msg.event = WICED_BT_HFP_HF_RFC_CONNECT_EVT;
+        wiced_bt_hfp_hf_utils_bdcpy(p_scb->peer_addr, bd_addr);
+        msg.hf_evt = WICED_BT_HFP_HF_RFC_CONNECT_EVT;
 
     } else if ( (code == WICED_BT_RFCOMM_PEER_CONNECTION_FAILED)
              || (code == WICED_BT_RFCOMM_CLOSED) )
     {
         /* Disconnected */
         WICED_BTHFP_TRACE("%s: Disconnected", __FUNCTION__);
-        msg.event = WICED_BT_HFP_HF_RFC_DISCONNECT_EVT;
+        msg.hf_evt = WICED_BT_HFP_HF_RFC_DISCONNECT_EVT;
     }
     else
     {
         return;
     }
-    msg.layer_specific = handle;
-    wiced_bt_hfp_hf_hdl_event(&msg);
+    msg.handle = handle;
+    wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_hf_data_t *)&msg);
 }
 
-#if BTSTACK_VER >= 0x03000001
 void wiced_bt_hfp_hf_rfcomm_port_tx_cmpl_cback(uint16_t handle, void* p_data)
 {
     WICED_BTHFP_TRACE("wiced_bt_hfp_hf_rfcomm_port_tx_cmpl_cback()  p_data:%x ", p_data);
 
 
 }
-#endif
 
 /*******************************************************************************
 ** Function         wiced_bt_hfp_hf_rfcomm_data_cback
 ** Description      Handle RFCOMM data callback
 *******************************************************************************/
-#if BTSTACK_VER >= 0x03000001
 void wiced_bt_hfp_hf_rfcomm_data_cback(wiced_bt_rfcomm_port_event_t code, uint16_t handle)
 {
     wiced_bt_hfp_hf_scb_t    *p_scb = NULL;
-    wiced_bt_hfp_rfc_data_t   rfc_data;
+    wiced_bt_hfp_rfcomm_evt_t   rfc_data;
     static char buff[256];
     uint16_t    len_read;
 
@@ -144,13 +139,13 @@ void wiced_bt_hfp_hf_rfcomm_data_cback(wiced_bt_rfcomm_port_event_t code, uint16
 
         if (len_read != 0)
         {
-            rfc_data.hdr.event = WICED_BT_HFP_HF_RFC_DATA_EVT;
-            rfc_data.hdr.layer_specific = handle;
+            rfc_data.hf_evt = WICED_BT_HFP_HF_RFC_DATA_EVT;
+            rfc_data.handle = handle;
             rfc_data.p_data = buff;
             rfc_data.len = len_read;
 
             WICED_BTHFP_TRACE("[%s] rfcomm data callback\n", __func__);
-            wiced_bt_hfp_hf_hdl_event((BT_HDR*)&rfc_data);
+            wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_hf_data_t*)&rfc_data);
         }
     }
     else
@@ -158,28 +153,6 @@ void wiced_bt_hfp_hf_rfcomm_data_cback(wiced_bt_rfcomm_port_event_t code, uint16
         WICED_BTHFP_ERROR("%s: Handle: %x  Code: 0x%08x\n", __FUNCTION__, handle, code);
     }
 }
-#else /* !BTSTACK_VER */
-int wiced_bt_hfp_hf_rfcomm_data_cback(uint16_t handle, void *p_data, uint16_t len)
-{
-    wiced_bt_hfp_hf_scb_t    *p_scb = NULL;
-    wiced_bt_hfp_rfc_data_t   rfc_data;
-
-    p_scb = wiced_bt_hfp_hf_get_scb_by_handle(handle);
-    if(p_scb == NULL)
-    {
-        WICED_BTHFP_ERROR("%s: No SCB found for handle:%d\n", __FUNCTION__, handle);
-        return 0;
-    }
-    rfc_data.hdr.event = WICED_BT_HFP_HF_RFC_DATA_EVT;
-    rfc_data.hdr.layer_specific = handle;
-    rfc_data.p_data = p_data;
-    rfc_data.len = len;
-
-    WICED_BTHFP_TRACE("%s rfcomm data callback\n", __func__);
-    wiced_bt_hfp_hf_hdl_event((BT_HDR*)&rfc_data);
-    return 0;
-}
-#endif /* BTSTACK_VER */
 
 /******************************************************************************
  ** Function        wiced_bt_do_sdp_again
@@ -211,7 +184,7 @@ void wiced_bt_hfp_hf_sdp_complete_cback(uint16_t sdp_res)
 
     if (sdp_res != WICED_BT_SDP_SUCCESS)
     {
-        msg.hdr.event= WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT;
+        msg.hf_evt= WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT;
         p_scb = wiced_bt_hfp_hf_get_scb_by_bd_addr(wiced_bt_hfp_hf_cb.sdp_bd_addr);
         if (p_scb == NULL)
         {
@@ -224,10 +197,10 @@ void wiced_bt_hfp_hf_sdp_complete_cback(uint16_t sdp_res)
     if (p_scb == NULL)
     {
         WICED_BTHFP_ERROR("%s No SCB found\n", __FUNCTION__);
-        msg.hdr.event= WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT;
+        msg.hf_evt= WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT;
 
         wiced_bt_hfp_hf_cb.ag_profile_uuid = 0;
-        wiced_bt_hfp_hf_hdl_event((BT_HDR*)&msg);
+        wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_hf_data_t*)&msg);
         return;
     }
 
@@ -235,11 +208,11 @@ void wiced_bt_hfp_hf_sdp_complete_cback(uint16_t sdp_res)
     if ((p_rec = wiced_bt_sdp_find_service_in_db(p_scb->p_sdp_db,
             wiced_bt_hfp_hf_cb.ag_profile_uuid, p_rec)) == NULL)
    {
-       msg.hdr.event = WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT;
+       msg.hf_evt = WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT;
        goto wiced_hfp_hf_sdp_complete;
    }
 
-    msg.hdr.event = WICED_BT_HFP_HF_SDP_DISC_OK_EVT;
+    msg.hf_evt = WICED_BT_HFP_HF_SDP_DISC_OK_EVT;
 
     /* Get scn */
     if (wiced_bt_sdp_find_protocol_list_elem_in_rec(p_rec, UUID_PROTOCOL_RFCOMM, &elem) == TRUE)
@@ -269,7 +242,7 @@ void wiced_bt_hfp_hf_sdp_complete_cback(uint16_t sdp_res)
     }
 
 wiced_hfp_hf_sdp_complete:
-    if( msg.hdr.event == WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT )
+    if( msg.hf_evt == WICED_BT_HFP_HF_SDP_DISC_FAIL_EVT )
     {
 #ifdef WICED_ENABLE_BT_HSP_PROFILE
         if( wiced_bt_hfp_hf_cb.ag_profile_uuid == UUID_SERVCLASS_AG_HANDSFREE )
@@ -282,15 +255,15 @@ wiced_hfp_hf_sdp_complete:
         {
             /* If both Profiles are not found */
             wiced_bt_hfp_hf_cb.ag_profile_uuid = 0;
-            wiced_bt_hfp_hf_hdl_event((BT_HDR*)&msg);
+            wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_rfcomm_evt_t*)&msg);
         }
 #else   // WICED_ENABLE_BT_HSP_PROFILE
         wiced_bt_hfp_hf_cb.ag_profile_uuid = 0;
-        wiced_bt_hfp_hf_hdl_event((BT_HDR*)&msg);
+        wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_hf_data_t*)&msg);
 #endif  // WICED_ENABLE_BT_HSP_PROFILE
     }
     else
-        wiced_bt_hfp_hf_hdl_event((BT_HDR*)&msg);
+        wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_hf_data_t*)&msg);
 
     if((p_scb != NULL) && (p_scb->p_sdp_db != NULL))
     {
@@ -317,7 +290,7 @@ void wiced_bt_hfp_hf_do_sdp(wiced_bt_hfp_hf_scb_t *p_scb,
     WICED_BTHFP_TRACE("%s\n", __FUNCTION__);
 
     /* Save peer bd_addr in sdp_bd_addr */
-    utl_bdcpy(wiced_bt_hfp_hf_cb.sdp_bd_addr, p_scb->peer_addr);
+    wiced_bt_hfp_hf_utils_bdcpy(wiced_bt_hfp_hf_cb.sdp_bd_addr, p_scb->peer_addr);
 
     uuid_list.len       = LEN_UUID_16;
     uuid_list.uu.uuid16 = wiced_bt_hfp_hf_cb.ag_profile_uuid;
@@ -364,7 +337,7 @@ void wiced_bt_hfp_hf_sdp_failed(wiced_bt_hfp_hf_scb_t *p_scb,
 
     WICED_BTHFP_TRACE("%s\n", __FUNCTION__);
 
-    utl_bdcpy(connect_fail.conn_data.remote_address, p_scb->peer_addr);
+    wiced_bt_hfp_hf_utils_bdcpy(connect_fail.conn_data.remote_address, p_scb->peer_addr);
     connect_fail.conn_data.conn_state = WICED_BT_HFP_HF_STATE_DISCONNECTED;
     connect_fail.handle = p_scb->rfcomm_handle;
 
@@ -410,14 +383,8 @@ void wiced_bt_hfp_hf_rfc_connect_req(wiced_bt_hfp_hf_scb_t *p_scb,
         goto connect_req_fail;
     }
 
-#if BTSTACK_VER >= 0x03000001
     res = wiced_bt_rfcomm_set_event_callback(handle,
         wiced_bt_hfp_hf_rfcomm_data_cback, wiced_bt_hfp_hf_rfcomm_port_tx_cmpl_cback);
-
-#else
-    res = wiced_bt_rfcomm_set_data_callback(handle,
-        wiced_bt_hfp_hf_rfcomm_data_cback);
-#endif
     if(res != WICED_BT_RFCOMM_SUCCESS)
     {
         wiced_bt_rfcomm_remove_connection(handle, TRUE);
@@ -433,7 +400,6 @@ void wiced_bt_hfp_hf_rfc_connect_req(wiced_bt_hfp_hf_scb_t *p_scb,
         goto connect_req_fail;
     }
 
-#if BTSTACK_VER >= 0x03000001
     res = wiced_bt_rfcomm_set_rx_fifo (handle, (char *)p_scb->rfcomm_fifo,  sizeof (p_scb->rfcomm_fifo));
     if (res != WICED_BT_RFCOMM_SUCCESS)
     {
@@ -441,7 +407,6 @@ void wiced_bt_hfp_hf_rfc_connect_req(wiced_bt_hfp_hf_scb_t *p_scb,
         WICED_BTHFP_ERROR("%s: Failed to set RFCOMM FIFO\n", __FUNCTION__);
         goto connect_req_fail;
     }
-#endif
 
     /* Set the handle in SCB */
     p_scb->rfcomm_handle  = handle;
@@ -453,9 +418,9 @@ void wiced_bt_hfp_hf_rfc_connect_req(wiced_bt_hfp_hf_scb_t *p_scb,
     return;
 
 connect_req_fail:
-    connect_fail.hdr.event = WICED_BT_HFP_HF_RFC_CONNECT_FAIL_EVT;
-    utl_bdcpy(connect_fail.bd_address, p_scb->peer_addr);
-    wiced_bt_hfp_hf_hdl_event((BT_HDR*)&connect_fail);
+    connect_fail.hf_evt = WICED_BT_HFP_HF_RFC_CONNECT_FAIL_EVT;
+    wiced_bt_hfp_hf_utils_bdcpy(connect_fail.bd_address, p_scb->peer_addr);
+    wiced_bt_hfp_hf_hdl_event((wiced_bt_hfp_hf_data_t*)&connect_fail);
 }
 
 /*******************************************************************************
@@ -469,7 +434,7 @@ void wiced_bt_hfp_hf_rfc_connection_fail(wiced_bt_hfp_hf_scb_t *p_scb,
 
     WICED_BTHFP_TRACE("%s\n", __FUNCTION__);
 
-    utl_bdcpy(connect_fail.conn_data.remote_address, p_scb->peer_addr);
+    wiced_bt_hfp_hf_utils_bdcpy(connect_fail.conn_data.remote_address, p_scb->peer_addr);
     connect_fail.conn_data.conn_state = WICED_BT_HFP_HF_STATE_DISCONNECTED;
     connect_fail.handle = p_scb->rfcomm_handle;
 
@@ -512,7 +477,7 @@ void wiced_bt_hfp_hf_rfc_connected(wiced_bt_hfp_hf_scb_t *p_scb,
     p_scb->mic_volume = wiced_bt_hfp_hf_cb.config_data.mic_volume;
     p_scb->speaker_volume = wiced_bt_hfp_hf_cb.config_data.speaker_volume;
 
-    utl_bdcpy(connect.conn_data.remote_address, p_scb->peer_addr);
+    wiced_bt_hfp_hf_utils_bdcpy(connect.conn_data.remote_address, p_scb->peer_addr);
     connect.conn_data.conn_state = WICED_BT_HFP_HF_STATE_CONNECTED;
     connect.handle = p_scb->rfcomm_handle;
 
@@ -600,7 +565,7 @@ void wiced_bt_hfp_hf_rfc_disconnected(wiced_bt_hfp_hf_scb_t *p_scb,
 
     WICED_BTHFP_TRACE("%s\n", __FUNCTION__);
 
-    utl_bdcpy(disconnect.conn_data.remote_address, p_scb->peer_addr);
+    wiced_bt_hfp_hf_utils_bdcpy(disconnect.conn_data.remote_address, p_scb->peer_addr);
     disconnect.conn_data.conn_state = WICED_BT_HFP_HF_STATE_DISCONNECTED;
     disconnect.handle = p_scb->rfcomm_handle;
 
@@ -665,7 +630,7 @@ void wiced_bt_hfp_hf_slc_open(wiced_bt_hfp_hf_scb_t *p_scb,
     p_scb->slc_open = TRUE;
 
     /* Call callback */
-    utl_bdcpy(connect.conn_data.remote_address, p_scb->peer_addr);
+    wiced_bt_hfp_hf_utils_bdcpy(connect.conn_data.remote_address, p_scb->peer_addr);
     connect.conn_data.conn_state = WICED_BT_HFP_HF_STATE_SLC_CONNECTED;
     connect.handle = p_scb->rfcomm_handle;
 

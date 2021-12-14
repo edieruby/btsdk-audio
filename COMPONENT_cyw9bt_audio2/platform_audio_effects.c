@@ -111,7 +111,7 @@ int32_t* platform_audio_effect_get_effects_type(uint32_t *num_of_effects)
 {
 
     *num_of_effects  = PLATFORM_TOTAL_AUD_EFFECTS;
-    WICED_BT_TRACE("%s no of effects %d\n",__func__,*num_of_effects);
+    WICED_BT_TRACE("%s no of effects %ld\n",__func__,*num_of_effects);
     return platform_effects_type_list;
 }
 

@@ -95,7 +95,7 @@ wiced_result_t platform_audio_device_configure ( const platform_audio_device_id_
 wiced_result_t platform_audio_device_set_sr ( const platform_audio_device_id_t device_id, int32_t sr )
 {
     uint16_t i;
-    WICED_BT_TRACE("platform_audio_device_set_sr : %d\n", sr);
+    WICED_BT_TRACE("platform_audio_device_set_sr : %ld\n", sr);
     for(i=0; i < PLATFORM_AUDIO_DEVICE_TOTAL; i++ )
     {
         if(platform_audio_device_list[i]->device_id == device_id)

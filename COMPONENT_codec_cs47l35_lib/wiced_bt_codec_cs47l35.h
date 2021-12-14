@@ -48,7 +48,7 @@
 #else
 #include "wiced_platform.h"
 #endif
-#if !(defined(CYW43012C0) || BTSTACK_VER >= 0x01020000)
+#if !(defined(CYW43012C0) || BTSTACK_VER >= 0x03000001)
 #include "wiced_hal_mia.h"
 #endif
 #include "wiced_bt_trace.h"

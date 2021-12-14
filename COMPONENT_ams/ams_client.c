@@ -270,7 +270,7 @@ wiced_bool_t wiced_bt_ams_client_initialize(wiced_bt_ams_client_config_t *p_conf
     param.s_handle = p_config->s_handle;
     param.e_handle = p_config->e_handle;
 
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     status = wiced_bt_gatt_client_send_discover(p_config->conn_id, GATT_DISCOVER_CHARACTERISTICS, &param);
 
     AMS_CLIENT_TRACE("wiced_bt_gatt_client_send_discover %d\n", status);
@@ -352,7 +352,7 @@ void wiced_bt_ams_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *
     wiced_bt_ams_client_event_data_t event_data = {0};
     wiced_bt_gatt_discovery_param_t param = {0};
     wiced_bt_gatt_status_t status;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_gatt_write_hdr_t hdr;
     uint8_t buf[2];
     wiced_bt_gatt_discovery_type_t discovery_type = p_data->discovery_type;
@@ -404,7 +404,7 @@ void wiced_bt_ams_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *
         param.s_handle          = ams_client.entity_update_val_hdl + 1;
         param.e_handle          = end_handle;
 
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
         status = wiced_bt_gatt_client_send_discover(p_data->conn_id, GATT_DISCOVER_CHARACTERISTIC_DESCRIPTORS, &param);
 
         AMS_CLIENT_TRACE("wiced_bt_gatt_client_send_discover %d\n", status);
@@ -423,7 +423,7 @@ void wiced_bt_ams_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *
             // done with descriptor discovery, register for notifications for data source by writing 1 into CCCD.
             ams_client.state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_CCCD;
 
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
             memset(&hdr, 0, sizeof(hdr));
 
             hdr.handle   = ams_client.entity_update_cccd_hdl;
@@ -658,7 +658,7 @@ void wiced_bt_ams_client_indication_handler(wiced_bt_gatt_operation_complete_t *
 wiced_bt_gatt_status_t ams_client_entity_update_write(uint8_t entity_id, uint8_t *p_attributes, int num_attributes)
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_SUCCESS;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     uint8_t buf[10];
     uint8_t *p_write = buf;
     wiced_bt_gatt_write_hdr_t gatt_hdr;
@@ -710,7 +710,7 @@ void wiced_bt_ams_client_send_remote_command(uint8_t remote_command_id)
 {
     wiced_bool_t           bfound = WICED_TRUE;
     wiced_bt_gatt_status_t status = WICED_BT_GATT_SUCCESS;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_gatt_write_hdr_t write;
 
     // Allocating a buffer to send the write request

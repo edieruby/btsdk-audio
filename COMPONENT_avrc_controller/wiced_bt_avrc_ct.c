@@ -71,7 +71,7 @@
 #define INVALID_TRANSACTION_LABEL       0xFF
 #define PLAYBACK_POSITION_CHANGE_SEC    1
 #define DEFAULT_METADATA_SCRATCH_SZ     1024
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 #define MAX_METADATA_RCV_MSG_SIZE       512
 #define MAX_AVCT_RCV_PKT_SIZE           512
 #define DEFAULT_METADATA_CMD_SIZE       512
@@ -313,7 +313,7 @@ typedef struct
 
     uint8_t *supported_events;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 #define MAX_QUEUED_TRANSACTIONS     2
     uint16_t                    num_held_trans;
     struct
@@ -326,6 +326,7 @@ typedef struct
 
     void* p_avct_buf[MAX_CONNECTED_RCC_DEVICES];
     void* p_avrc_buf[MAX_CONNECTED_RCC_DEVICES];
+
 #endif
 
 #ifdef AVCT_MAP_FRAGMENTED_RESPONSE_ALLOCATION
@@ -369,7 +370,7 @@ static void wiced_bt_avrc_ct_start_discovery( wiced_bt_device_address_t  peer_ad
 static wiced_result_t wiced_bt_avrc_ct_send_getcaps_cmd( rcc_device_t *prcc_dev );
 static uint8_t wiced_bt_avrc_ct_process_meta_cmd( wiced_bt_avrc_response_t   *p_rc_rsp, wiced_bt_avrc_msg_t *p_msg, uint8_t *p_ctype );
 #if AVRC_ADV_CTRL_INCLUDED == TRUE
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 static wiced_bt_avrc_xmit_buf_t* wiced_bt_avrc_ct_set_absolute_volume_cmd(rcc_device_t* rcc_dev, uint8_t label, wiced_bt_avrc_command_t* p_cmd, uint8_t* p_code);
 #else
 static BT_HDR *wiced_bt_avrc_ct_set_absolute_volume_cmd( rcc_device_t *rcc_dev,uint8_t label, wiced_bt_avrc_command_t *p_cmd, uint8_t *p_code );
@@ -396,7 +397,7 @@ static void wiced_bt_avrc_ct_forward_rsp( rcc_device_t *rcc_dev, uint8_t label, 
 static void wiced_bt_avrc_ct_handle_msg( uint8_t handle, uint8_t label, uint8_t opcode, wiced_bt_avrc_msg_t *p_msg );
 static uint8_t wiced_bt_avrc_ct_operation_supported( uint8_t rc_id );
 #if AVRC_ADV_CTRL_INCLUDED == TRUE
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 static wiced_bt_avrc_xmit_buf_t* wiced_bt_avrc_ct_receive_notification_registration(rcc_device_t* rcc_dev, uint8_t label, wiced_bt_avrc_command_t* p_cmd, wiced_bt_avrc_response_t* p_rsp, uint8_t* p_code);
 #else
 static BT_HDR *wiced_bt_avrc_ct_receive_notification_registration( rcc_device_t *rcc_dev, uint8_t label, wiced_bt_avrc_command_t *p_cmd, wiced_bt_avrc_response_t *p_rsp, uint8_t *p_code );
@@ -411,7 +412,7 @@ extern void AVCT_Register(uint16_t mtu, uint16_t mtu_br, uint8_t sec_mask);
 
 static void wiced_bt_avrc_ct_rcc_display(void);
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 static void wiced_bt_avrc_ct_connection_open(uint8_t dev_idx, uint8_t role, wiced_bt_device_address_t bdaddr, uint8_t local_feature);
 #else
 static void wiced_bt_avrc_ct_connection_open(uint8_t *p_handle, uint8_t role, wiced_bt_device_address_t bdaddr, uint8_t local_feature);
@@ -500,7 +501,7 @@ static const char *dump_event_name(uint8_t event)
 }
 #endif
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 void wiced_avrc_send_or_enqueue(uint8_t handle, uint8_t label, uint8_t ctype, wiced_bt_avrc_xmit_buf_t* p_msgbuf)
 {
     uint16_t status;
@@ -748,7 +749,7 @@ void wiced_bt_avrc_ctrl_cback ( uint8_t handle, uint8_t event, uint16_t result, 
                 {
                     if( rcc_cb.rc_acp_handle[i] == handle )
                     {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                         if (rcc_cb.p_avct_buf[i] == NULL)
                             rcc_cb.p_avct_buf[i] = wiced_bt_get_buffer(MAX_AVCT_RCV_PKT_SIZE);
 
@@ -824,7 +825,7 @@ void wiced_bt_avrc_msg_cback (uint8_t handle, uint8_t label, uint8_t opcode, wic
     wiced_bt_avrc_ct_handle_msg ( handle, label, opcode, p_msg );
 }
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 void wiced_bt_avrc_xmitted_cback(uint8_t handle, wiced_bt_avrc_xmit_buf_t* p_buf, wiced_bool_t sent_ok)
 {
     WICED_BTAVRCP_TRACE("%s handle[%d] buf: %p  sent_ok: %d\n", __FUNCTION__, handle, p_buf, sent_ok);
@@ -1209,7 +1210,7 @@ static void wiced_bt_avrc_ct_sdp_cback( uint16_t status )
         {
             if (rcc_cb.device[i].rc_handle == INVALID_TRANSACTION_LABEL)
             {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                 wiced_bt_avrc_ct_connection_open(i,
                         AVRC_CONN_ACCEPTOR,
                         bd_addr_any,
@@ -1245,7 +1246,7 @@ void wiced_bt_avrc_ct_discovery_done()
     wiced_bt_avrc_conn_cb_t ccb;
     uint8_t cb_indx         = INVALID_CB_INDEX;
     uint8_t free_cb_indx    = INVALID_CB_INDEX;
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     uint8_t dev_inx = INVALID_CB_INDEX;
 #endif
 
@@ -1264,7 +1265,7 @@ void wiced_bt_avrc_ct_discovery_done()
         {
             /* Assume this is a remote connect attempt. Accept it if we have room. */
             prcc_dev = &rcc_cb.device[free_cb_indx];
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             dev_inx = free_cb_indx;
 #endif
         }
@@ -1279,7 +1280,7 @@ void wiced_bt_avrc_ct_discovery_done()
     else
     {
         prcc_dev = &rcc_cb.device[cb_indx];
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         dev_inx = cb_indx;
 #endif
     }
@@ -1306,7 +1307,7 @@ void wiced_bt_avrc_ct_discovery_done()
             ( ( rcc_cb.local_features & REMOTE_CONTROL_FEATURE_TARGET ) &&
               ( rcc_cb.remote_features  & REMOTE_CONTROL_FEATURE_CONTROLLER ) ) )
         {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             if (rcc_cb.p_avct_buf[dev_inx] == NULL)
                 rcc_cb.p_avct_buf[dev_inx] = wiced_bt_get_buffer(MAX_AVCT_RCV_PKT_SIZE);
 
@@ -1441,7 +1442,7 @@ static wiced_result_t wiced_bt_avrc_ct_send_getcaps_cmd( rcc_device_t *prcc_dev 
     cmd.capability_id = AVRC_CAP_EVENTS_SUPPORTED;
 
     /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     avrc_status = wiced_avrc_build_and_send_metadata_cmd((wiced_bt_avrc_command_t*)&cmd, AVRC_CMD_STATUS, prcc_dev->rc_handle, ptransaction->label);
     if (avrc_status != AVRC_STS_NO_ERROR)
 #else
@@ -1671,7 +1672,7 @@ void wiced_bt_avrc_ct_handle_msg(uint8_t handle, uint8_t label, uint8_t opcode, 
 {
     uint8_t evt = 0;
 #if( AVRC_METADATA_INCLUDED == TRUE )
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_avrc_xmit_buf_t* p_pkt = NULL;
 #else
     BT_HDR      *p_pkt = NULL;
@@ -1721,7 +1722,7 @@ void wiced_bt_avrc_ct_handle_msg(uint8_t handle, uint8_t label, uint8_t opcode, 
             wiced_bt_avrc_sts_t         avrc_sts;
             wiced_bt_avrc_command_t command;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             avrc_sts = wiced_bt_avrc_parse_command((wiced_bt_avrc_msg_t*)p_msg, &command, p_msg->vendor.p_vendor_data, p_msg->vendor.vendor_len);
 #else
             avrc_sts = wiced_bt_avrc_parse_command((wiced_bt_avrc_msg_t *)p_msg, &command,  NULL, 0);
@@ -1732,7 +1733,7 @@ void wiced_bt_avrc_ct_handle_msg(uint8_t handle, uint8_t label, uint8_t opcode, 
                 rc_rsp.rsp.opcode = opcode;
                 rc_rsp.rsp.pdu = pdu_id;
                 ctype = AVRC_RSP_REJ;
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                 wiced_avrc_build_and_send_metadata_rsp (&rc_rsp, ctype, handle, label);
 #else
                 wiced_bt_avrc_bld_response(handle, &rc_rsp, &p_pkt);
@@ -1758,7 +1759,7 @@ void wiced_bt_avrc_ct_handle_msg(uint8_t handle, uint8_t label, uint8_t opcode, 
                 else
                     evt = RCC_META_MSG_EVT;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                 /* If we got a response, send any enqueued command */
                 if (p_msg->hdr.ctype >= AVRC_RSP_NOT_IMPL)
                     wiced_avrc_send_next_metadata_msg();
@@ -1809,7 +1810,7 @@ void wiced_bt_avrc_ct_handle_msg(uint8_t handle, uint8_t label, uint8_t opcode, 
         if( p_pkt == NULL )
         {
             rc_rsp.rsp.opcode = opcode;
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             wiced_avrc_build_and_send_metadata_rsp (&rc_rsp, ctype, handle, label);
 #else
             wiced_bt_avrc_bld_response ( 0,&rc_rsp,&p_pkt );
@@ -1849,7 +1850,7 @@ void wiced_bt_avrc_ct_handle_msg(uint8_t handle, uint8_t label, uint8_t opcode, 
         /* If browsing message, then free the browse message buffer */
         if( opcode == AVRC_OP_BROWSE )
         {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             wiced_bt_free_buffer(p_msg->browse.p_browse_data);
 #else
             wiced_bt_free_buffer(p_msg->browse.p_browse_pkt);
@@ -2051,7 +2052,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
 
         wiced_bt_avrc_command_t  avrc_cmd;
         wiced_bt_avrc_response_t avrc_rsp;
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         wiced_bt_avrc_xmit_buf_t *p_rsp_pkt = NULL;
 #else
         BT_HDR *p_rsp_pkt = NULL;
@@ -2061,7 +2062,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
         /* Use the AVRC utilities to parse the metadata response
          * Note that there is no need for a scratch buffer for the PDUs
          */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_bt_avrc_parse_command(p_data, &avrc_cmd, p_data->vendor.p_vendor_data, p_data->vendor.vendor_len);
 #else
         avrc_status = wiced_bt_avrc_parse_command( p_data, &avrc_cmd, NULL, 0 );
@@ -2076,7 +2077,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
             switch( avrc_cmd.pdu )
             {
                 case AVRC_PDU_SET_ABSOLUTE_VOLUME:
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                     p_rsp_pkt = wiced_bt_avrc_ct_set_absolute_volume_cmd(rcc_dev, label, &avrc_cmd, &rsp_code);
 #else
                     p_rsp_pkt = wiced_bt_avrc_ct_set_absolute_volume_cmd ( rcc_dev, label, &avrc_cmd, &rsp_code );
@@ -2084,7 +2085,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
                     break;
 
                 case AVRC_PDU_REGISTER_NOTIFICATION:
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                     p_rsp_pkt = wiced_bt_avrc_ct_receive_notification_registration(rcc_dev, label, &avrc_cmd, &avrc_rsp, &rsp_code);
 #else
                     p_rsp_pkt = wiced_bt_avrc_ct_receive_notification_registration ( rcc_dev, label, &avrc_cmd, &avrc_rsp, &rsp_code );
@@ -2097,7 +2098,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
                     avrc_rsp.rsp.status = AVRC_STS_BAD_CMD;
                     avrc_rsp.rsp.opcode = p_data->hdr.opcode;;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
                     wiced_avrc_build_metadata_rsp (rcc_dev->rc_handle, &avrc_rsp, &p_rsp_pkt);
 #else
                     wiced_bt_avrc_bld_response (rcc_dev->rc_handle, &avrc_rsp, &p_rsp_pkt);
@@ -2113,7 +2114,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
             {
                 avrc_rsp.pdu = AVRC_PDU_GENERAL_REJECT;
             }
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             wiced_avrc_build_metadata_rsp (rcc_dev->rc_handle, &avrc_rsp, &p_rsp_pkt);
 #else
             wiced_bt_avrc_bld_response (rcc_dev->rc_handle, &avrc_rsp, &p_rsp_pkt);
@@ -2158,7 +2159,7 @@ static void wiced_bt_avrc_ct_metadata_command_event_cback( uint8_t handle, uint8
 **
 ** Returns          void
 *******************************************************************************/
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 static wiced_bt_avrc_xmit_buf_t* wiced_bt_avrc_ct_set_absolute_volume_cmd(
         rcc_device_t* rcc_dev, uint8_t label, wiced_bt_avrc_command_t* p_cmd, uint8_t* p_code)
 #else
@@ -2169,7 +2170,7 @@ static BT_HDR *wiced_bt_avrc_ct_set_absolute_volume_cmd(
     uint8_t volume = p_cmd->volume.volume;
 
     /* response packet to be sent */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_avrc_xmit_buf_t* p_rsp_pkt = NULL;
 #else
     BT_HDR *p_rsp_pkt = NULL;
@@ -2198,7 +2199,7 @@ static BT_HDR *wiced_bt_avrc_ct_set_absolute_volume_cmd(
     p_rsp.pdu           = p_cmd->pdu;
 
     /* build response packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     aStatus = wiced_avrc_build_metadata_rsp (rcc_dev->rc_handle, &p_rsp, &p_rsp_pkt);
 #else
     aStatus = wiced_bt_avrc_bld_response( rcc_dev->rc_handle, &p_rsp, &p_rsp_pkt );
@@ -2220,7 +2221,7 @@ static BT_HDR *wiced_bt_avrc_ct_set_absolute_volume_cmd(
 **
 ** Returns          void
 *******************************************************************************/
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 static wiced_bt_avrc_xmit_buf_t* wiced_bt_avrc_ct_receive_notification_registration(
         rcc_device_t* rcc_dev, uint8_t label, wiced_bt_avrc_command_t* p_cmd, wiced_bt_avrc_response_t* p_rsp, uint8_t* p_code)
 #else
@@ -2228,7 +2229,7 @@ static BT_HDR *wiced_bt_avrc_ct_receive_notification_registration(
     rcc_device_t *rcc_dev, uint8_t label, wiced_bt_avrc_command_t *p_cmd, wiced_bt_avrc_response_t *p_rsp, uint8_t *p_code )
 #endif
 {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_avrc_xmit_buf_t* p_rsp_pkt = NULL;
 #else
     BT_HDR *p_rsp_pkt = NULL;
@@ -2256,7 +2257,7 @@ static BT_HDR *wiced_bt_avrc_ct_receive_notification_registration(
         p_rsp->reg_notif.status = AVRC_STS_NO_ERROR;
 
         /* Build the response packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         aStatus = wiced_avrc_build_metadata_rsp(rcc_dev->rc_handle, p_rsp, &p_rsp_pkt);
 #else
         aStatus = wiced_bt_avrc_bld_response( rcc_dev->rc_handle, p_rsp, &p_rsp_pkt );
@@ -2497,7 +2498,7 @@ static wiced_result_t wiced_bt_avrc_ct_register_for_notification ( rcc_device_t 
     cmd.param = PLAYBACK_POSITION_CHANGE_SEC;
 
     /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     avrc_status = wiced_avrc_build_and_send_metadata_cmd((wiced_bt_avrc_command_t*)&cmd, AVRC_CMD_NOTIF, prcc_dev->rc_handle, ptransaction->label);
     if (avrc_status != AVRC_STS_NO_ERROR)
 #else
@@ -2597,7 +2598,7 @@ wiced_result_t wiced_bt_avrc_ct_init(uint32_t local_features,
 
         if( ( rcc_cb.rc_acp_handle[dev_indx] == 0 ) && (local_features & ( REMOTE_CONTROL_FEATURE_CONTROLLER | REMOTE_CONTROL_FEATURE_TARGET )) )
         {
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             if (rcc_cb.p_avct_buf[dev_indx] == NULL)
                 rcc_cb.p_avct_buf[dev_indx] = wiced_bt_get_buffer(MAX_AVCT_RCV_PKT_SIZE);
 
@@ -3017,7 +3018,7 @@ wiced_result_t wiced_bt_avrc_ct_get_element_attr_cmd( uint8_t handle, wiced_bt_a
         }
 
         /* This call will allocate the packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_elem_attr, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
         if (avrc_status != AVRC_STS_NO_ERROR)
 #else
@@ -3084,7 +3085,7 @@ wiced_result_t wiced_bt_avrc_ct_get_play_status_cmd( uint8_t handle )
         get_play_status.status = AVRC_STS_NO_ERROR;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_play_status, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3159,7 +3160,7 @@ wiced_result_t wiced_bt_avrc_ct_list_player_attrs_cmd( uint8_t handle )
         list_app_attr.status = AVRC_STS_NO_ERROR;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&list_app_attr, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3237,7 +3238,7 @@ wiced_result_t wiced_bt_avrc_ct_list_player_values_cmd( uint8_t handle, uint8_t 
         transaction->u.attribute_id = attr;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&list_app_val, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3336,7 +3337,7 @@ wiced_result_t wiced_bt_avrc_ct_get_player_value_cmd(uint8_t handle,
         }
 
         /* This call will allocate the packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_app_val, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
         if (avrc_status != AVRC_STS_NO_ERROR)
 #else
@@ -3439,7 +3440,7 @@ wiced_result_t wiced_bt_avrc_ct_set_player_value_cmd( uint8_t handle,
         set_app_val.p_vals = app_settings;
 
         /* This call will allocate the packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&set_app_val, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3527,7 +3528,7 @@ wiced_result_t wiced_bt_avrc_ct_get_player_attrs_text_cmd(
         }
 
         /* This call will allocate the packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_app_attr_txt, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3614,7 +3615,7 @@ wiced_result_t wiced_bt_avrc_ct_get_player_values_text_cmd( uint8_t handle, uint
         }
 
         /* This call will allocate the packet */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_app_val_txt, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3687,7 +3688,7 @@ wiced_result_t wiced_bt_avrc_ct_set_addressed_player_cmd( uint8_t handle, uint16
         set_player_cmd.player_id = player_id;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&set_player_cmd, AVRC_CMD_CTRL, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3754,7 +3755,7 @@ wiced_result_t wiced_bt_avrc_ct_set_browsed_player_cmd( uint8_t handle, uint16_t
         set_browsed_player.player_id = player_id;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&set_browsed_player, AVRC_CMD_CTRL, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3834,7 +3835,7 @@ wiced_result_t wiced_bt_avrc_ct_change_path_cmd(uint8_t handle,
         memcpy( change_path_cmd.folder_uid, path_uid, sizeof(wiced_bt_avrc_uid_t) );
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&change_path_cmd, AVRC_CMD_CTRL, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -3926,7 +3927,7 @@ wiced_result_t wiced_bt_avrc_ct_get_folder_items_cmd(uint8_t handle,
         get_folder_items.p_attr_list = (uint32_t *)p_attrs;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_folder_items, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -4021,7 +4022,7 @@ wiced_result_t wiced_bt_avrc_ct_get_item_attributes_cmd(
         get_item_attr.p_attr_list = (uint32_t *)p_attrs;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&get_item_attr, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -4091,7 +4092,7 @@ wiced_result_t wiced_bt_avrc_ct_search_cmd(uint8_t handle, wiced_bt_avrc_full_na
         search_cmd.string.p_str      = search_string.p_str;
 
         /* This call will allocate the packet. */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&search_cmd, AVRC_CMD_STATUS, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -4166,7 +4167,7 @@ wiced_result_t wiced_bt_avrc_ct_play_item_cmd(uint8_t handle, uint8_t scope, wic
 
         memcpy( play_item_cmd.uid, item_uid, sizeof( wiced_bt_avrc_uid_t ) );
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&play_item_cmd, AVRC_CMD_CTRL, rcc_dev->rc_handle, transaction->label);
         if (avrc_status != AVRC_STS_NO_ERROR)
 #else
@@ -4242,7 +4243,7 @@ wiced_result_t wiced_bt_avrc_ct_add_to_now_playing_cmd( uint8_t handle, uint8_t 
 
         memcpy( add_to_play_cmd.uid, item_uid, sizeof(wiced_bt_avrc_uid_t) );
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
         avrc_status = wiced_avrc_build_and_send_metadata_cmd(&add_to_play_cmd, AVRC_CMD_CTRL, rcc_dev->rc_handle, transaction->label);
 
         if (avrc_status != AVRC_STS_NO_ERROR)
@@ -4284,7 +4285,7 @@ wiced_result_t wiced_bt_avrc_ct_set_volume_cmd( uint8_t handle, uint8_t volume )
     wiced_result_t result = WICED_SUCCESS;
     int connectedDeviceIndex;
     wiced_bt_avrc_response_t avrc_rsp;
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_avrc_xmit_buf_t* p_rsp_pkt = NULL;
 #else
     BT_HDR *p_rsp_pkt = NULL;
@@ -4330,7 +4331,7 @@ wiced_result_t wiced_bt_avrc_ct_set_volume_cmd( uint8_t handle, uint8_t volume )
             avrc_rsp.reg_notif.event_id     = AVRC_EVT_VOLUME_CHANGE;
             avrc_rsp.reg_notif.param.volume = volume;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
             result = wiced_avrc_build_metadata_rsp (rcc_dev->rc_handle, &avrc_rsp, &p_rsp_pkt);
 
             if( p_rsp_pkt != NULL )
@@ -4475,7 +4476,7 @@ wiced_result_t wiced_bt_avrc_ct_lrac_switch_set(void *p_opaque, uint16_t sync_da
  *
  * @param[in]   local_feature
  */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
 static void wiced_bt_avrc_ct_connection_open(uint8_t dev_idx, uint8_t role, wiced_bt_device_address_t bdaddr, uint8_t local_feature)
 {
     wiced_bt_avrc_conn_cb_t ccb;

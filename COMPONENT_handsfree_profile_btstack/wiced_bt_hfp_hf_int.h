@@ -5,7 +5,7 @@
 * 	This is a private interface file for the Handsfree profile.
 *
 *//*****************************************************************************
-* Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -43,10 +43,7 @@
 #include "wiced_bt_rfcomm.h"
 #include "wiced_bt_trace.h"
 #include "wiced_timer.h"
-#include "wiced_bt_utils.h"
-#if BTSTACK_VER >= 0x03000001
 #include "wiced_memory.h"
-#endif // BTSTACK_VER
 
 /******************************************************************************
 *  Constants
@@ -79,7 +76,7 @@
 #endif
 
 #ifndef WICED_BT_HFP_HF_WBS_INCLUDED
-#define WICED_BT_HFP_HF_WBS_INCLUDED TRUE
+#define WICED_BT_HFP_HF_WBS_INCLUDED FALSE
 #endif
 
 /* RFCOMM MTU SIZE */
@@ -239,7 +236,7 @@ typedef struct
    WICED_BT_HFP_HF_API_DISCONNECT_EVT */
 typedef struct
 {
-    BT_HDR                    hdr;
+    wiced_bt_hfp_hf_state_evt_t                    hf_evt;
     union
     {
         wiced_bt_device_address_t bd_address;
@@ -251,7 +248,7 @@ typedef struct
    WICED_BT_HFP_HF_API_CALL_ACTION_EVT */
 typedef struct
 {
-    BT_HDR                         hdr;
+    wiced_bt_hfp_hf_state_evt_t                         hf_evt;
     uint16_t                       handle;
     wiced_bt_hfp_hf_call_action_t  action;
     char                           number[WICED_BT_HFP_HF_MAX_PHONE_NUMBER_LEN];
@@ -261,7 +258,7 @@ typedef struct
    WICED_BT_HFP_HF_API_NOTIFY_VOLUME_EVT */
 typedef struct
 {
-    BT_HDR                        hdr;
+    wiced_bt_hfp_hf_state_evt_t                        hf_evt;
     uint16_t                      handle;
     wiced_bt_hfp_hf_volume_type_t volume_type;
     uint8_t                       volume_level;
@@ -271,8 +268,10 @@ typedef struct
    WICED_BT_HFP_HF_API_SEND_AT_CMD_EVT */
 typedef struct
 {
-    BT_HDR                    hdr;
+    wiced_bt_hfp_hf_state_evt_t                    hf_evt;
     uint16_t                  handle;
+    uint16_t                  len;
+    uint8_t                   cmd_id;
     char                      at_cmd[WICED_BT_HFP_HF_MAX_AT_CMD_LEN];
 } wiced_bt_hfp_hf_api_send_at_cmd_t;
 
@@ -280,25 +279,28 @@ typedef struct
    WICED_BT_HFP_HF_SDP_DISC_OK_EVT */
 typedef struct
 {
-    BT_HDR   hdr;
+    wiced_bt_hfp_hf_state_evt_t   hf_evt;
     uint8_t  peer_scn;          /* Peer scn to connect to */
     uint16_t peer_feature_mask; /* Peer HF feature mask */
     uint16_t peer_version;      /* Peer HF version */
 } wiced_bt_hfp_hf_sdp_res_t;
 
-/* Data type for WICED_BT_HFP_HF_RFC_DATA_EVT */
+
+/* Data type for RFCOMM-related events */
 typedef struct
 {
-    BT_HDR   hdr;
+    wiced_bt_hfp_hf_state_evt_t hf_evt;
+    uint16_t                    handle;
+    wiced_bt_device_address_t   bd_address;
     void    *p_data;
     uint16_t len;
-} wiced_bt_hfp_rfc_data_t;
+} wiced_bt_hfp_rfcomm_evt_t;
 
 /* Data type for
    WICED_BT_HFP_HF_RFC_CONNECT_FAIL_EVT */
 typedef struct
 {
-    BT_HDR                    hdr;
+    wiced_bt_hfp_hf_state_evt_t                    hf_evt;
     wiced_bt_device_address_t bd_address;
 } wiced_bt_hfp_hf_connect_fail_t;
 
@@ -306,13 +308,13 @@ typedef struct
 /* Union of all event datatypes */
 typedef union
 {
-    BT_HDR                            hdr;
+    wiced_bt_hfp_hf_state_evt_t                            hf_evt;
     wiced_bt_hfp_hf_api_data_t        api_data;
     wiced_bt_hfp_hf_api_call_action_t api_call_action;
     wiced_bt_hfp_hf_api_notify_vol_t  api_notify_vol;
     wiced_bt_hfp_hf_api_send_at_cmd_t api_send_at_cmd;
     wiced_bt_hfp_hf_sdp_res_t         sdp_res;
-    wiced_bt_hfp_rfc_data_t           rfc_data;
+    wiced_bt_hfp_rfcomm_evt_t           rfc_data;
     wiced_bt_hfp_hf_connect_fail_t    connect_fail;
 } wiced_bt_hfp_hf_data_t;
 
@@ -327,14 +329,12 @@ typedef struct
 } wiced_bt_hfp_hf_peer_indicator_t;
 #endif
 
-#ifndef BTSTACK_VER
 typedef struct
 {
     void      *p_first;
     void      *p_last;
     uint16_t  count;
 } BUFFER_Q;
-#endif // !BTSTACK_VER
 
 /* Type for each service control block */
 typedef struct
@@ -353,11 +353,7 @@ typedef struct
     uint16_t                     peer_version;                       /* Handsfree profile version of te peer */
     uint8_t                      peer_scn;                           /* Peer scn */
     uint8_t                      slc_at_init_state;                  /* At-cmd state during slc establishment */
-#if BTSTACK_VER >= 0x03000001
-    wiced_bt_buffer_q_t         wiced_bt_hfp_hf_at_cmd_queue;       /* Q for sending AT cmds serially*/
-#else
-    BUFFER_Q                     wiced_bt_hfp_hf_at_cmd_queue;       /* Q for sending AT cmds serially*/
-#endif
+    wiced_bt_buffer_q_t                     wiced_bt_hfp_hf_at_cmd_queue;       /* Q for sending AT cmds serially*/
     wiced_timer_t                wiced_bt_hfp_hf_at_cmd_queue_timer; /* Timer to recover if peer do not respond to AT command */
     uint8_t                      wiced_bt_hfp_hf_at_cmd_queue_depth; /* Depth of AT command Q*/
     uint32_t                     feature_mask;
@@ -378,10 +374,8 @@ typedef struct
   && WICED_BT_HFP_HF_IND_SUPPORTED == TRUE)
     wiced_bt_hfp_hf_peer_indicator_t peer_ind[WICED_BT_HFP_HF_MAX_NUM_PEER_IND]; /* Peer HF indicator status */
 #endif
-#if BTSTACK_VER >= 0x03000001
     /* TODO : for now fifo size if fixed, need to update the required max memory for rfcomm_fifo */
     uint8_t                     rfcomm_fifo[400];
-#endif
 } wiced_bt_hfp_hf_scb_t;
 
 /* Type for Handsfree control block */
@@ -446,12 +440,19 @@ extern wiced_bt_hfp_hf_scb_t *wiced_bt_hfp_hf_scb_alloc(void);
 
 
 /* State machine related */
-extern wiced_bool_t wiced_bt_hfp_hf_hdl_event(BT_HDR *p_msg);
+extern wiced_bool_t wiced_bt_hfp_hf_hdl_event(wiced_bt_hfp_hf_data_t *p_msg);
 extern wiced_result_t wiced_bt_hfp_hf_init_state_machine(void);
 extern void wiced_bt_hfp_hf_ssm_execute(wiced_bt_hfp_hf_scb_t *p_scb,
     wiced_bt_hfp_hf_data_t *p_data, uint8_t event);
 
 /* Utility functions */
+extern void wiced_bt_hfp_hf_utils_bdcpy(wiced_bt_device_address_t a,
+    const wiced_bt_device_address_t b);
+extern int wiced_bt_hfp_hf_utils_bdcmp(const wiced_bt_device_address_t a,
+    const wiced_bt_device_address_t b);
+extern int wiced_bt_hfp_hf_utils_strucmp(const char *p_s, const char *p_t);
+extern uint8_t wiced_bt_hfp_hf_utils_itoa(uint16_t i, char *p_s);
+extern int16_t wiced_bt_hfp_hf_utils_str2int(const char *p_s);
 extern int32_t wiced_bt_hfp_hf_utils_str2uint16(const char *p_s);
 
 /* Action functions */
@@ -484,12 +485,8 @@ extern void wiced_bt_hfp_hf_cmd_timeout(wiced_bt_hfp_hf_scb_t *p_scb,
 
 /* RFCOMM callback related functions */
 extern void wiced_bt_hfp_hf_rfcomm_mgmt_cback(wiced_bt_rfcomm_result_t code, uint16_t handle);
-#if BTSTACK_VER >= 0x03000001
 extern void wiced_bt_hfp_hf_rfcomm_data_cback(wiced_bt_rfcomm_port_event_t code, uint16_t handle);
 extern void wiced_bt_hfp_hf_rfcomm_port_tx_cmpl_cback(uint16_t handle, void* p_data);
-#else
-extern int wiced_bt_hfp_hf_rfcomm_data_cback(uint16_t handle, void *p_data, uint16_t len);
-#endif
 
 /* AT command related */
 extern void wiced_bt_hfp_hf_at_init(wiced_bt_hfp_hf_at_cb_t *p_cb);

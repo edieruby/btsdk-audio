@@ -40,7 +40,9 @@
 #include "bt_hs_spk_button.h"
 #include "bt_hs_spk_handsfree.h"
 #include "wiced_button_manager.h"
+#ifndef PLATFORM_LED_DISABLED
 #include "wiced_led_manager.h"
+#endif // !PLATFORM_LED_DISABLED
 #include "wiced_timer.h"
 #include "wiced_transport.h"
 #include "bt_hs_spk_pm.h"
@@ -161,14 +163,9 @@ wiced_result_t bt_hs_spk_init_button_interface(bt_hs_spk_button_config_t *p_conf
     {
         p_config->p_configuration->event_handler = app_button_event_handler;
 
-        result = wiced_init_timer(&bt_service_timer, bt_service_timer_cb,
-                                  0,
-                                  WICED_SECONDS_TIMER);
-
-        if (result != WICED_SUCCESS)
-        {
-            WICED_BT_TRACE("button_manager timer init failed (%d)\n", result);
-        }
+        wiced_init_timer(&bt_service_timer, bt_service_timer_cb,
+                         0,
+                         WICED_SECONDS_TIMER);
 
         bt_hs_spk_button_cb.p_pre_handler = p_config->p_pre_handler;
     }
@@ -266,8 +263,7 @@ void bt_hs_spk_button_set_discovery(wiced_bool_t enable)
 #ifndef PLATFORM_LED_DISABLED
         wiced_led_manager_blink_led(PLATFORM_LED_1,BT_DISCOVERY_LEDBLINK_PERIOD,BT_DISCOVERY_LEDBLINK_PERIOD);
 #endif
-        if (WICED_SUCCESS != wiced_start_timer( &bt_service_timer,bt_hs_spk_control_discoverable_timeout_get() ))
-            WICED_BT_TRACE("%s timer start failed\n",__func__);
+        wiced_start_timer( &bt_service_timer,bt_hs_spk_control_discoverable_timeout_get() );
     }
     else
     {
@@ -346,8 +342,7 @@ void bt_audio_set_connection_state(wiced_bool_t state, wiced_bt_transport_t tran
 
 #ifdef LOW_POWER_MEASURE_MODE
             /* disable connectable later for low power test mode */
-            if (WICED_SUCCESS != wiced_start_timer( &bt_service_timer,bt_hs_spk_control_discoverable_timeout_get() ))
-                WICED_BT_TRACE("%s timer start failed\n",__func__);
+            wiced_start_timer( &bt_service_timer,bt_hs_spk_control_discoverable_timeout_get() );
 #endif
         }
         else
@@ -643,14 +638,12 @@ void bt_hs_spk_button_lrac_switch_restore_visibility(wiced_bool_t dissoverable, 
 #ifndef PLATFORM_LED_DISABLED
         wiced_led_manager_blink_led(PLATFORM_LED_1,BT_DISCOVERY_LEDBLINK_PERIOD,BT_DISCOVERY_LEDBLINK_PERIOD);
 #endif
-        if (WICED_SUCCESS != wiced_start_timer( &bt_service_timer, remain_time ))
-            WICED_BT_TRACE("%s timer start failed\n",__func__);
+        wiced_start_timer( &bt_service_timer, remain_time );
     }
 #ifdef LOW_POWER_MEASURE_MODE
     else if (dissoverable == WICED_FALSE && connectable == WICED_TRUE)
     {
-        if (WICED_SUCCESS != wiced_start_timer( &bt_service_timer, remain_time ))
-            WICED_BT_TRACE("%s timer start failed\n",__func__);
+        wiced_start_timer( &bt_service_timer, remain_time );
     }
 #endif
 }

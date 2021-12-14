@@ -57,12 +57,9 @@ uint8_t                     ag_num_scb;
 void sdp_timer_cb( uint32_t arg )
 {
     hfp_ag_session_cb_t *p_scb = ag_p_scb;
-    wiced_result_t result;
     uint8_t i;
 
-    result = wiced_stop_timer( &sdp_timer );
-    if (result != WICED_BT_SUCCESS)
-        WICED_BT_TRACE( "sdp_timer_cb fail result=%d\n", result);
+    wiced_stop_timer( &sdp_timer );
 
     for ( i = 0; i < ag_num_scb; i++, p_scb++ )
     {
@@ -112,8 +109,7 @@ void hfp_ag_startup( hfp_ag_session_cb_t *p_scb, uint8_t num_scb, uint32_t featu
         hfp_ag_rfcomm_start_server( p_scb );
     }
 
-    if ( wiced_init_timer( &sdp_timer, &sdp_timer_cb, 0, WICED_SECONDS_TIMER ) != WICED_SUCCESS )
-        WICED_BT_TRACE("Init SDP timer fail\n");
+    wiced_init_timer( &sdp_timer, &sdp_timer_cb, 0, WICED_SECONDS_TIMER );
 
 //    Default mode is set to I2S Master so no need to call this API
 //    To change the mode please call below API and to update PCM configuration use wiced_hal_set_pcm_config API
@@ -345,10 +341,7 @@ void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status )
         if(p_scb->b_is_initiator && p_scb->hf_profile_uuid == UUID_SERVCLASS_HF_HANDSFREE)
         {
             WICED_BT_TRACE("hfp_ag_process_open_callback: Try HSP\n");
-            if ( wiced_start_timer( &sdp_timer, 1 ) !=  WICED_SUCCESS )
-            {
-                WICED_BT_TRACE( "Start SDP Timer Error\n\r" );
-            }
+            wiced_start_timer( &sdp_timer, 1 );
         }
         else
         {

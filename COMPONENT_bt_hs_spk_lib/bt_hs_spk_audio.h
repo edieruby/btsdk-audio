@@ -48,7 +48,7 @@
 **************************************************************************************************/
 #include "wiced_result.h"
 #include "wiced_bt_a2dp_sink.h"
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
 #include "wiced_audio_sink_route_config.h"
 #endif
 #include "bt_hs_spk_control.h"

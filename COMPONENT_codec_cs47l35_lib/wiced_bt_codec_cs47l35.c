@@ -62,8 +62,12 @@
 #endif
 #include "wiced_hal_gpio.h"
 #include "wiced_platform.h"
-#ifndef CYW43012C0
+#ifdef CYW55572
+#include "cycfg_pins.h" //it will remove when GeneratedSource/cycfg_pins.h is correct
+#else
+#if !defined(CYW43012C0) || (defined(USE_DESIGN_MODUS) && USE_DESIGN_MODUS)
 #include "GeneratedSource/cycfg_pins.h"
+#endif
 #endif
 
 #include "wiced_bt_codec_cs47l35.h"
@@ -144,7 +148,6 @@ void codec_write_reg_config( codec_reg * reg_cfgs, uint32_t num_cfgs);
 
 void platform_bham_codec_marley_ctrl_bus_init(void)
 {
-#ifndef CYW55572
     if (codec_cs47l35_initialized == WICED_FALSE)
     {
 #ifdef CYW43012C0
@@ -155,8 +158,10 @@ void platform_bham_codec_marley_ctrl_bus_init(void)
         wiced_hal_gpio_configure_pin(SPI_CS, GPIO_OUTPUT_ENABLE, GPIO_PIN_OUTPUT_LOW);
 #else
         wiced_hal_pspi_init(SPI2, BHAM_SPI_FREQUENCY, SPI_MSB_FIRST, SPI_SS_ACTIVE_LOW, SPI_MODE_0);
+#ifndef CYW55572
         REG32(iocfg_fcn_p0_adr + (4 * SPI_CS)) = 0;
         wiced_hal_gpio_configure_pin(SPI_CS, GPIO_OUTPUT_ENABLE, GPIO_PIN_OUTPUT_LOW);
+#endif
 #endif
 
         driver_codec_reset();
@@ -192,7 +197,6 @@ void platform_bham_codec_marley_ctrl_bus_init(void)
 
         codec_cs47l35_initialized = WICED_TRUE;
     }
-#endif
 }
 
 void platform_bham_codec_marley_write_cmd(uint32_t address, uint16_t tx_length, const uint8_t *p_tx_buffer)
@@ -219,6 +223,20 @@ void platform_bham_codec_marley_write_cmd(uint32_t address, uint16_t tx_length, 
     wiced_hal_pspi_tx_data(SPI2, tx_length, p_tx_buffer);
 #endif
     wiced_hal_gpio_set_pin_output(SPI_CS, GPIO_PIN_OUTPUT_HIGH);
+#else
+    uint8_t p_spi_tx_buffer[10];
+    p_spi_tx_buffer[0] = (uint8_t) BYTE3(address);
+    p_spi_tx_buffer[1] = (uint8_t) BYTE2(address);
+    p_spi_tx_buffer[2] = (uint8_t) BYTE1(address);
+    p_spi_tx_buffer[3] = (uint8_t) BYTE0(address);
+    p_spi_tx_buffer[4] = (uint8_t) 0; /* 16-bit padding phase */
+    p_spi_tx_buffer[5] = (uint8_t) 0; /* 16-bit padding phase */
+    memcpy(&p_spi_tx_buffer[6], p_tx_buffer, tx_length);
+    /* Send address and data */
+    wiced_hal_pspi_tx_data(SPI2, 6 + tx_length, p_spi_tx_buffer);
+    //if no delay cs47l35 will not have voice
+    //TODO: investigating the needed delay.
+    wiced_rtos_delay_milliseconds(1, ALLOW_THREAD_TO_SLEEP);
 #endif
 }
 
@@ -247,6 +265,44 @@ void platform_bham_codec_marley_read_cmd(uint32_t address, uint16_t rx_length, u
     wiced_hal_pspi_rx_data(SPI2, rx_length, p_rx_buffer);
 #endif
     wiced_hal_gpio_set_pin_output(SPI_CS, GPIO_PIN_OUTPUT_HIGH);
+#else
+    uint8_t p_spi_tx_buffer[10];
+    uint8_t p_spi_rx_buffer[10];
+
+    /* force read / write bit to read */
+    p_spi_tx_buffer[0] = (uint8_t) (BYTE3(address) | 0x80);
+    p_spi_tx_buffer[1] = (uint8_t) BYTE2(address);
+    p_spi_tx_buffer[2] = (uint8_t) BYTE1(address);
+    p_spi_tx_buffer[3] = (uint8_t) BYTE0(address);
+    p_spi_tx_buffer[4] = (uint8_t) 0; /* 16-bit padding phase */
+    p_spi_tx_buffer[5] = (uint8_t) 0; /* 16-bit padding phase */
+    p_spi_tx_buffer[6] = (uint8_t) 0; /* 16-bit padding phase */
+    p_spi_tx_buffer[7] = (uint8_t) 0; /* 16-bit padding phase */
+    p_spi_tx_buffer[8] = (uint8_t) 0; /* 16-bit padding phase */
+    p_spi_tx_buffer[9] = (uint8_t) 0; /* 16-bit padding phase */
+    /*
+     * This is a workaround for wiced_hal_pspi_exchange_data.
+     * Now using wiced_hal_pspi_exchange_data the p_spi_rx_buffer will get the last time value.
+     * So the workaround solution is send correct command first, then use wiced_hal_pspi_exchange_data to send dummy data
+     * , and p_spi_rx_buffer will have the expected value.
+     * The ideal situation is only call wiced_hal_pspi_exchange_data.
+     */
+    /*
+     * As long as called wiced_hal_pspi_tx_data, there will be data in spi rx fifo.
+     * We need to clear spi rx fifo first.
+     */
+    wiced_hal_pspi_clear_rx_fifo(SPI2);
+    /* Send address and data */
+    /* When wiced_hal_pspi_tx_data finish, there will be correct data in spi rx fifo. */
+    wiced_hal_pspi_tx_data(SPI2, 6 + rx_length, p_spi_tx_buffer);
+    /* Read data */
+    /* It needs to send dummy data and p_spi_rx_buffer will get correct data from spi rx fifo */
+    p_spi_tx_buffer[0] = (uint8_t) 0;
+    p_spi_tx_buffer[1] = (uint8_t) 0;
+    p_spi_tx_buffer[2] = (uint8_t) 0;
+    p_spi_tx_buffer[3] = (uint8_t) 0;
+    wiced_hal_pspi_exchange_data(SPI2, 6 + rx_length, p_spi_tx_buffer, p_spi_rx_buffer);
+    memcpy(p_rx_buffer, &p_spi_rx_buffer[6], rx_length);
 #endif
 }
 
@@ -363,7 +419,6 @@ uint16_t driver_codec_read16(uint32_t address)
 
 uint32_t driver_codec_read32(uint32_t address)
 {
-#ifndef CYW55572
     uint8_t p_spi_rx_buffer[CODEC_SPI_DATA32_SIZE];
     uint32_t value;
 
@@ -379,9 +434,6 @@ uint32_t driver_codec_read32(uint32_t address)
     CS47L35_TRACE("DRIVER_CODEC R32 %X:%08X\n", address, (uint32_t)value);
 
     return value;
-#else
-    return 0;
-#endif
 }
 
 uint16_t driver_codec_id_get(void)

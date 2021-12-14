@@ -41,8 +41,12 @@
 #include "platform_audio_effects.h"
 #include "platform.h"
 #include "wiced_platform.h"
-#ifndef CYW43012C0
+#ifdef CYW55572
+#include "cycfg_pins.h"  //it will remove when GeneratedSource/cycfg_pins.h is correct
+#else
+#if !defined(CYW43012C0) || (defined(USE_DESIGN_MODUS) && USE_DESIGN_MODUS)
 #include "GeneratedSource/cycfg_pins.h"
+#endif
 #endif
 
 gpio_button_t platform_gpio_buttons[] =

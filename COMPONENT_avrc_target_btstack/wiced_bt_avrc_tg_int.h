@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -37,7 +37,7 @@
 #ifndef WICED_BT_RC_TG_INT_H
 #define WICED_BT_RC_TG_INT_H
 
-#include "bt_types.h"
+#include "wiced_bt_types.h"
 
 #include "wiced_result.h"
 #include "wiced_bt_dev.h"
@@ -58,7 +58,7 @@
 #define AV_FEAT_METADATA        0x0020  /* metadata Transfer */
 typedef uint32_t  wiced_bt_avrc_tg_features_t;
 
-#define RC_SEC_MASK            BTM_SEC_NONE
+#define RC_SEC_MASK            BTM_SEC_BEST_EFFORT
 
 #define PLAYBACK_POSITION_CHANGE_SEC    1
 
@@ -126,10 +126,9 @@ typedef struct
     wiced_bt_avrc_tg_track_attr_t   app_track_attr[APP_AVRC_MAX_ATTR+1];
 #endif
     uint8_t                         conn_role;
-#if BTSTACK_VER >= 0x03000001
-    void                        *p_avct_buf;
-    void                        *p_avrc_buf;
-#endif
+    void* p_avct_buf;
+    void* p_avrc_buf;
+    tDRB *p_browse_drb;
 } wiced_bt_avrc_tg_cb_t;
 
 #endif /* WICED_BT_RC_TG_INT_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -42,10 +42,9 @@
 #include "wiced_bt_app_common.h"
 #endif
 #include "wiced_memory.h"
-#if defined(CYW20719B1) || defined(CYW20721B1) || defined(CYW20721B2) || defined(CYW43012C0) || defined(CYW20706A2) || BTSTACK_VER >= 0x03000001
+#if defined(CYW20719B1) || defined(CYW20721B1) || defined(CYW20721B2) || defined(CYW43012C0) || defined(CYW20706A2)
 #include "wiced_bt_event.h"
 #endif
-#include "wiced_bt_utils.h"
 
 /*****************************************************************************
 ** Global data
@@ -151,7 +150,7 @@ wiced_bt_hfp_hf_scb_t *wiced_bt_hfp_hf_get_scb_by_bd_addr(
     for(i=0; i<WICED_BT_HFP_HF_MAX_CONN; i++)
     {
         if(wiced_bt_hfp_hf_cb.scb[i].in_use == TRUE &&
-            !utl_bdcmp(wiced_bt_hfp_hf_cb.scb[i].peer_addr, bd_addr))
+            !wiced_bt_hfp_hf_utils_bdcmp(wiced_bt_hfp_hf_cb.scb[i].peer_addr, bd_addr))
         {
             p_scb = &wiced_bt_hfp_hf_cb.scb[i];
             break;
@@ -283,7 +282,9 @@ wiced_bool_t wiced_bt_hfp_open_rfcomm_server_port()
     {
         if( wiced_rfcomm_server_data[index].server_handle == 0 )
         {
-            wiced_app_event_serialize(wiced_bt_hfp_serialize_hf_register, &(wiced_rfcomm_server_data[index].scn));
+           // wiced_app_event_serialize(wiced_bt_hfp_serialize_hf_register, &(wiced_rfcomm_server_data[index].scn));
+		//Replaced to wiced_app_event_serialize
+            wiced_bt_hfp_serialize_hf_register(&wiced_rfcomm_server_data[index].scn);
             return WICED_TRUE;
         }
     }
@@ -295,6 +296,7 @@ wiced_bool_t wiced_bt_hfp_open_rfcomm_server_port()
 ** Description      Allocate stream control block and registers the service to stack
 ** Returns          wiced_result_t
 *******************************************************************************/
+static wiced_bt_device_address_t bd_addr_any  = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 wiced_result_t wiced_bt_hfp_hf_register(uint8_t scn, uint16_t uuid)
 {
     wiced_bt_rfcomm_result_t res = WICED_BT_RFCOMM_SUCCESS;
@@ -310,13 +312,8 @@ wiced_result_t wiced_bt_hfp_hf_register(uint8_t scn, uint16_t uuid)
         return res;
     }
 
-#if BTSTACK_VER >= 0x03000001
     res = wiced_bt_rfcomm_set_event_callback(handle,
         wiced_bt_hfp_hf_rfcomm_data_cback, wiced_bt_hfp_hf_rfcomm_port_tx_cmpl_cback);
-#else
-    res = wiced_bt_rfcomm_set_data_callback(handle,
-        wiced_bt_hfp_hf_rfcomm_data_cback);
-#endif
     if(res != WICED_BT_RFCOMM_SUCCESS)
     {
         wiced_bt_rfcomm_remove_connection(handle, TRUE);
@@ -354,7 +351,7 @@ static wiced_bt_hfp_hf_scb_t *wiced_bt_hfp_hf_get_scb(uint16_t event,
         p_scb = wiced_bt_hfp_hf_scb_alloc();
         if(p_scb != NULL)
         {
-            utl_bdcpy(p_scb->peer_addr, p_data->api_data.bd_address);
+            wiced_bt_hfp_hf_utils_bdcpy(p_scb->peer_addr, p_data->api_data.bd_address);
         }
         break;
     case WICED_BT_HFP_HF_API_DISCONNECT_EVT:
@@ -367,7 +364,7 @@ static wiced_bt_hfp_hf_scb_t *wiced_bt_hfp_hf_get_scb(uint16_t event,
     case WICED_BT_HFP_HF_RFC_DATA_EVT:
     case WICED_BT_HFP_HF_RFC_CONNECT_EVT:
     case WICED_BT_HFP_HF_RFC_DISCONNECT_EVT:
-        p_scb = wiced_bt_hfp_hf_get_scb_by_handle(p_data->hdr.layer_specific);
+        p_scb = wiced_bt_hfp_hf_get_scb_by_handle(p_data->rfc_data.handle);
         break;
     case WICED_BT_HFP_HF_RFC_CONNECT_FAIL_EVT:
         p_scb = wiced_bt_hfp_hf_get_scb_by_bd_addr(p_data->connect_fail.bd_address);
@@ -404,9 +401,9 @@ const wiced_bt_hfp_hf_nsm_act_t wiced_bt_hfp_hf_nsm_act[] =
 ** Description      Handsfree main event handling function.
 ** Returns          wiced_bool_t
 *******************************************************************************/
-wiced_bool_t wiced_bt_hfp_hf_hdl_event(BT_HDR *p_msg)
+wiced_bool_t wiced_bt_hfp_hf_hdl_event(wiced_bt_hfp_hf_data_t *p_msg)
 {
-    uint8_t event = (uint8_t)p_msg->event;
+    uint8_t event = (uint8_t)p_msg->hf_evt;
     wiced_bt_hfp_hf_data_t *p_data = (wiced_bt_hfp_hf_data_t *)p_msg;
     wiced_bt_hfp_hf_scb_t *p_scb = NULL;
 
@@ -427,7 +424,7 @@ wiced_bool_t wiced_bt_hfp_hf_hdl_event(BT_HDR *p_msg)
         /* State machine events */
         if ((p_scb = wiced_bt_hfp_hf_get_scb(event, p_data)) != NULL)
         {
-            wiced_bt_hfp_hf_ssm_execute(p_scb, p_data, (uint8_t)p_msg->event);
+            wiced_bt_hfp_hf_ssm_execute(p_scb, p_data, (uint8_t)p_msg->hf_evt);
         }
 
     }

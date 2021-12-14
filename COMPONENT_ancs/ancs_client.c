@@ -113,7 +113,7 @@ uint8_t  ancs_client_notification_attribute[] =
 // Maximum length we are going to request.  The values are valid for
 // title subtitle and message.  The number of elements should match number
 // of elements in the ancs_client_notification_attribute above
-uint8_t  ancs_client_notification_attribute_length[] =
+uint16_t  ancs_client_notification_attribute_length[] =
 {
 //    0,
     20,
@@ -226,7 +226,7 @@ typedef struct t_ANCS_CLIENT
     uint16_t  data_source_val_hdl;
     uint16_t  data_source_cccd_hdl;
 
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_pool_t *p_event_pool;
 #else
     uint8_t *p_event_pool;
@@ -309,7 +309,7 @@ wiced_bool_t wiced_bt_ancs_client_initialize(wiced_bt_ancs_client_config_t *p_co
     }
 
     /* Creating a buffer pool for holding the peer devices's key info */
-#if BTSTACK_VER >= 0x01020000
+#if BTSTACK_VER >= 0x03000001
     ancs_client.p_event_pool = wiced_bt_create_pool("ancs_evt",
             sizeof(ancs_client_queued_event_t),
             ANCS_MAX_QUEUED_NOTIFICATIONS,
@@ -325,13 +325,10 @@ wiced_bool_t wiced_bt_ancs_client_initialize(wiced_bt_ancs_client_config_t *p_co
     }
 
     /* Initialize connection timer */
-    if (wiced_init_timer(&ancs_client.ancs_retry_timer,
-                         &ancs_client_retry_timeout,
-                         0,
-                         WICED_SECONDS_TIMER) != WICED_BT_SUCCESS)
-    {
-        return WICED_FALSE;
-    }
+    wiced_init_timer(&ancs_client.ancs_retry_timer,
+                     &ancs_client_retry_timeout,
+                     0,
+                     WICED_SECONDS_TIMER);
 
     ancs_client.init = WICED_TRUE;
     ancs_client.p_app_cb = p_config->p_event_handler;
@@ -488,7 +485,7 @@ void wiced_bt_ancs_client_discovery_complete(wiced_bt_gatt_discovery_complete_t 
 {
     uint16_t end_handle;
     wiced_bt_ancs_client_event_data_t event_data;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     wiced_bt_gatt_discovery_type_t discovery_type = p_data->discovery_type;
 #else
     wiced_bt_gatt_discovery_type_t discovery_type = p_data->disc_type;
@@ -609,7 +606,16 @@ void wiced_bt_ancs_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data)
  */
 static wiced_bt_gatt_status_t ancs_client_send_next_get_notification_attributes_command(uint32_t uid)
 {
-#if BTSTACK_VER > 0x01020000
+    // Uncomment below to test race conditions when iPhone is doing something while we are collecting attributes
+    // extern void utilslib_delayUs(uint32_t delay);
+    // extern void wiced_hal_wdog_restart(void);
+    // for (int i = 0; i < 1000; i++)
+    // {
+    //     utilslib_delayUs(1000);
+    //     wiced_hal_wdog_restart();
+    // }
+
+#if BTSTACK_VER >= 0x03000001
     uint8_t                buf[10];
     wiced_bt_gatt_write_hdr_t  hdr;
     uint8_t                *p_command = buf;
@@ -685,7 +691,7 @@ static wiced_bt_gatt_status_t ancs_client_send_next_get_notification_attributes_
 wiced_bool_t wiced_ancs_client_send_remote_command(uint32_t uid, uint32_t action_id)
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_SUCCESS;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     uint8_t buf[10];
     wiced_bt_gatt_write_hdr_t hdr;
     uint8_t *p_command = buf;
@@ -747,14 +753,104 @@ wiced_bool_t wiced_ancs_client_send_remote_command(uint32_t uid, uint32_t action
 }
 
 /*
+ * P_first_event is used to collect info and pass info to the application. The queued buffers have only
+ * basic information. Switch p_first_event and copy basic info
+ */
+ancs_client_event_t* ancs_switch_to_next_buffer(void)
+{
+    ancs_client_queued_event_t* p_queued_event;
+    ancs_client_event_t* p_event = NULL;
+
+    if (ancs_client.p_first_event == NULL)
+    {
+        return NULL;
+    }
+    if ((p_queued_event = ancs_client.p_first_event->p_next) != NULL)
+    {
+        if ((p_event = (ancs_client_event_t*)wiced_bt_get_buffer(sizeof(ancs_client_event_t))) == NULL)
+        {
+            ANCS_CLIENT_TRACE("Failed to get buf to copy\n");
+        }
+        else
+        {
+            memset(p_event, 0, sizeof(ancs_client_event_t));
+
+            p_event->p_next = p_queued_event->p_next;
+
+            memcpy((void*)&p_event->data.basic,
+                (void*)&p_queued_event->data.basic,
+                sizeof(wiced_bt_ancs_client_notification_data_basic_t));
+
+            wiced_bt_free_buffer(p_queued_event);
+        }
+    }
+    return p_event;
+}
+
+/*
+ * This function is executed when ANCS client completed processing of the previous event, or
+ * when ANCS server notifies client that the event being processed has been removed
+ */
+static void ancs_client_start_next_event(void)
+{
+    wiced_bt_gatt_status_t status;
+    ancs_client_event_t* p_event;
+    ancs_client_queued_event_t* p_queued_event;
+    wiced_bt_ancs_client_event_data_t event_data;
+
+    // if next event in the queue is "Removed" ship it out right away
+    while ((ancs_client.p_first_event != NULL) && (ancs_client.p_first_event->data.basic.command == ANCS_EVENT_ID_NOTIFICATION_REMOVED))
+    {
+        p_event = ancs_client.p_first_event;
+        ancs_client.p_first_event = ancs_switch_to_next_buffer();
+
+        if (ancs_client.p_app_cb)
+        {
+            event_data.notification.p_data = (wiced_bt_ancs_client_notification_data_t*)&p_event->data;
+            (*ancs_client.p_app_cb)(WICED_BT_ANCS_CLIENT_EVENT_NOTIFICATION, &event_data);
+        }
+
+        wiced_bt_free_buffer(p_event);
+    }
+    if (ancs_client.p_first_event == NULL)
+    {
+        ANCS_CLIENT_TRACE("[%s] queue empty\n", __FUNCTION__);
+    }
+    else
+    {
+        ANCS_CLIENT_TRACE("[%s] UID:%d\n", __FUNCTION__, ancs_client.p_first_event->data.basic.notification_uid);
+
+        // start reading attributes for the next message
+        ancs_client.notification_attribute_inx = 0;
+
+        status = ancs_client_send_next_get_notification_attributes_command(ancs_client.p_first_event->data.basic.notification_uid);
+        if (status == WICED_BT_GATT_BUSY)
+        {
+            // another GATT procedure is currently active, retry in a second
+            ANCS_CLIENT_TRACE("busy retrieve:%d\n", ancs_client.p_first_event->data.basic.notification_uid);
+            wiced_start_timer(&ancs_client.ancs_retry_timer, ANCS_CLIENT_GET_NOTIFICATION_ATTRIBUTE_RETRY_TIMEOUT);
+        }
+        else if (status != WICED_BT_GATT_SUCCESS)
+        {
+            ANCS_CLIENT_TRACE("ancs gatt failed:%02x uid:%d\n", status, ancs_client.p_first_event->data.basic.notification_uid);
+            p_event = ancs_client.p_first_event;
+            ancs_client.p_first_event = ancs_switch_to_next_buffer();
+
+            wiced_bt_free_buffer(p_event);
+            wiced_start_timer(&ancs_client.ancs_retry_timer, ANCS_CLIENT_GET_NOTIFICATION_ATTRIBUTE_RETRY_TIMEOUT);
+        }
+    }
+}
+
+/*
  * Process Notification Source messages from the phone.
  * If it is a new or modified notification start reading attributes.
  */
 static void ancs_client_process_notification_source(uint8_t *data, int len)
 {
-    wiced_bt_gatt_status_t status;
     ancs_client_event_t    *p_ancs_event;
     ancs_client_event_t    *p_prev = NULL;
+    ancs_client_event_t    *p_event;
     wiced_bt_ancs_client_event_data_t event_data;
 
     // Skip all pre-existing events
@@ -810,24 +906,55 @@ static void ancs_client_process_notification_source(uint8_t *data, int len)
         wiced_trace_array(&data[8], len - 8);
 #endif
 
-
     ANCS_CLIENT_TRACE("notification type:%d, uuid:%d\n", data[0], p_ancs_event->data.basic.notification_uid);
 
     p_ancs_event->data.basic.command    = data[0];
     p_ancs_event->data.basic.flags      = data[1];
     p_ancs_event->data.basic.category   = data[2];
 
-    // if we do not need to get details, and if there is nothing in the queue, can ship it out now
-    if ((p_ancs_event->data.basic.command == ANCS_EVENT_ID_NOTIFICATION_REMOVED) && (ancs_client.p_first_event == NULL))
+    if (p_ancs_event->data.basic.command == ANCS_EVENT_ID_NOTIFICATION_REMOVED)
     {
-        if (ancs_client.p_app_cb)
+        // For Removed notification, no need to get details, if there is nothing in the queue, can ship it out now
+        if (ancs_client.p_first_event == NULL)
         {
-            event_data.notification.p_data = (wiced_bt_ancs_client_notification_data_t *) &p_ancs_event->data;
-            (*ancs_client.p_app_cb)(WICED_BT_ANCS_CLIENT_EVENT_NOTIFICATION, &event_data);
+            if (ancs_client.p_app_cb)
+            {
+                event_data.notification.p_data = (wiced_bt_ancs_client_notification_data_t*)&p_ancs_event->data;
+                (*ancs_client.p_app_cb)(WICED_BT_ANCS_CLIENT_EVENT_NOTIFICATION, &event_data);
+            }
+            wiced_bt_free_buffer(p_ancs_event);
+            return;
         }
+        // If we are currently processing notification that is being removed, or if
+        // one of the queued UIDs is being removed, clean it up without telling application
+        else if (ancs_client.p_first_event->data.basic.notification_uid == p_ancs_event->data.basic.notification_uid)
+        {
+            ANCS_CLIENT_TRACE("removed UID being processed:%d\n", p_ancs_event->data.basic.notification_uid);
+            p_event = ancs_client.p_first_event;
+            ancs_client.p_first_event = ancs_switch_to_next_buffer();
 
-        wiced_bt_free_buffer(p_ancs_event);
-        return;
+            wiced_bt_free_buffer(p_event);
+            wiced_bt_free_buffer(p_ancs_event);
+
+            ancs_client_start_next_event();
+            return;
+        }
+        else
+        {
+            p_prev = ancs_client.p_first_event;
+            for (p_event = ancs_client.p_first_event->p_next; p_event != NULL; p_event = p_event->p_next)
+            {
+                if (p_event->data.basic.notification_uid == p_ancs_event->data.basic.notification_uid)
+                {
+                    ANCS_CLIENT_TRACE("removed UID:%d from the queue\n", p_ancs_event->data.basic.notification_uid);
+                    p_prev->p_next = p_event->p_next;
+                    wiced_bt_free_buffer(p_event);
+                    wiced_bt_free_buffer(p_ancs_event);
+                    return;
+                }
+                p_prev = p_event;
+            }
+        }
     }
     // enqueue new event at the end of the queue
     if (ancs_client.p_first_event == NULL)
@@ -849,26 +976,7 @@ static void ancs_client_process_notification_source(uint8_t *data, int len)
         // if we are currently in process of dealing with another event just return
         if (ancs_client.p_first_event == p_ancs_event)
         {
-            status = ancs_client_send_next_get_notification_attributes_command(p_ancs_event->data.basic.notification_uid);
-            if (status == WICED_BT_GATT_BUSY)
-            {
-                // another GATT procedure is currently active, retry in a second
-                ANCS_CLIENT_TRACE("busy retrieve:%d\n", p_ancs_event->data.basic.notification_uid);
-                wiced_start_timer(&ancs_client.ancs_retry_timer, ANCS_CLIENT_GET_NOTIFICATION_ATTRIBUTE_RETRY_TIMEOUT);
-            }
-            else if (status != WICED_BT_GATT_SUCCESS)
-            {
-                ANCS_CLIENT_TRACE("ancs gatt failed:%02x uid:%d\n", status, p_ancs_event->data.basic.notification_uid);
-                wiced_bt_free_buffer(p_ancs_event);
-                if (ancs_client.p_first_event == p_ancs_event)
-                {
-                    ancs_client.p_first_event = NULL;
-                }
-                else
-                {
-                    p_prev->p_next = p_ancs_event;
-                }
-            }
+            ancs_client_start_next_event();
         }
         else
         {
@@ -887,7 +995,6 @@ static void ancs_client_process_event_attribute(uint8_t  *data, int len)
     uint16_t                length = data[1] + (data[2] << 8);
     uint8_t *               p_event_data = &data[3];
     ancs_client_event_t     *p_event = ancs_client.p_first_event;
-    ancs_client_queued_event_t *p_queued_event;
     wiced_bt_gatt_status_t  status;
     wiced_bt_ancs_client_event_data_t event_data;
 
@@ -950,31 +1057,9 @@ static void ancs_client_process_event_attribute(uint8_t  *data, int len)
     else
     {
         // Done with attributes for current event
-        ancs_client.notification_attribute_inx = 0;
-
         p_event = ancs_client.p_first_event;
+        ancs_client.p_first_event = ancs_switch_to_next_buffer();
 
-        if ((p_queued_event = ancs_client.p_first_event->p_next) != NULL)
-        {
-            if ((ancs_client.p_first_event = (ancs_client_event_t *) wiced_bt_get_buffer(sizeof(ancs_client_event_t))) == NULL)
-            {
-                ANCS_CLIENT_TRACE("Failed to get buf to copy\n");
-                return;
-            }
-            memset (ancs_client.p_first_event, 0, sizeof(ancs_client_event_t));
-
-            ancs_client.p_first_event->p_next = p_queued_event->p_next;
-
-            memcpy((void *) &ancs_client.p_first_event->data.basic,
-                   (void *) &p_queued_event->data.basic,
-                   sizeof(wiced_bt_ancs_client_notification_data_basic_t));
-
-            wiced_bt_free_buffer(p_queued_event);
-        }
-        else
-        {
-            ancs_client.p_first_event = NULL;
-        }
         // ship current event to the application
         if (ancs_client.p_app_cb)
         {
@@ -983,60 +1068,7 @@ static void ancs_client_process_event_attribute(uint8_t  *data, int len)
         }
 
         wiced_bt_free_buffer(p_event);
-
-        // if next event in the queue is "Removed" ship it out right away
-        while (ancs_client.p_first_event != NULL)
-        {
-            if (ancs_client.p_first_event->data.basic.command == ANCS_EVENT_ID_NOTIFICATION_REMOVED)
-            {
-                p_event = ancs_client.p_first_event;
-                ancs_client.p_first_event = p_event->p_next;
-
-                if (ancs_client.p_app_cb)
-                {
-                    event_data.notification.p_data = (wiced_bt_ancs_client_notification_data_t *) &p_event->data;
-                    (*ancs_client.p_app_cb)(WICED_BT_ANCS_CLIENT_EVENT_NOTIFICATION, &event_data);
-                }
-
-                wiced_bt_free_buffer(p_event);
-
-                /* Change current first event from queued event type to client event type. */
-                if (ancs_client.p_first_event != NULL)
-                {
-                    p_queued_event = (ancs_client_queued_event_t *) ancs_client.p_first_event;
-
-                    if ((ancs_client.p_first_event = (ancs_client_event_t *) wiced_bt_get_buffer(sizeof(ancs_client_event_t))) == NULL)
-                    {
-                        /* This must not be happened since we just free the buffer in the previous step.
-                         * If this happens, we shall consider to lock this section to ensure the memory allocation. */
-                        ANCS_CLIENT_TRACE("Err: Failed to get buf to copy\n");
-                        break;
-                    }
-
-                    memset((void *) ancs_client.p_first_event, 0, sizeof(ancs_client_event_t));
-
-                    ancs_client.p_first_event->p_next = p_queued_event->p_next;
-
-                    memcpy((void *) &ancs_client.p_first_event->data.basic,
-                           (void *) &p_queued_event->data.basic,
-                           sizeof(wiced_bt_ancs_client_notification_data_basic_t));
-
-                    wiced_bt_free_buffer(p_queued_event);
-                }
-            }
-            else
-            {
-                // start reading attributes for the next message
-                status = ancs_client_send_next_get_notification_attributes_command(ancs_client.p_first_event->data.basic.notification_uid);
-                if (status == WICED_BT_GATT_BUSY)
-                {
-                    // another GATT procedure is currently active, retry in a second
-                    ANCS_CLIENT_TRACE("busy retrieve:%d\n", ancs_client.p_first_event->data.basic.notification_uid);
-                    wiced_start_timer(&ancs_client.ancs_retry_timer, ANCS_CLIENT_GET_NOTIFICATION_ATTRIBUTE_RETRY_TIMEOUT);
-                }
-                break;
-            }
-        }
+        ancs_client_start_next_event();
     }
 }
 
@@ -1127,7 +1159,7 @@ void wiced_bt_ancs_client_indication_handler(wiced_bt_gatt_operation_complete_t 
 static void ancs_client_set_client_config_descriptor(uint16_t conn_id, uint16_t handle, uint16_t value)
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_SUCCESS;
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     uint8_t                buf[2];
     wiced_bt_gatt_write_hdr_t hdr;
     uint16_t               u16 = value;
@@ -1186,7 +1218,7 @@ static void ancs_client_send_discover(uint16_t conn_id, wiced_bt_gatt_discovery_
     param.s_handle = s_handle;
     param.e_handle = e_handle;
 
-#if BTSTACK_VER > 0x01020000
+#if BTSTACK_VER >= 0x03000001
     status = wiced_bt_gatt_client_send_discover(conn_id, type, &param);
 
     ANCS_CLIENT_TRACE("wiced_bt_gatt_client_send_discover %d\n", status);
