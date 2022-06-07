@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -95,7 +95,7 @@ int16_t sine_wave_stereo[64] =
 static void bt_hs_spk_audio_insert_a2dp_status_callback(void);
 static void bt_hs_spk_audio_insert_sco_event_callback(void);
 static void bt_hs_spk_audio_insert_source_data_exhausted_handler(wiced_bt_audio_insert_type_t type);
-static void bt_hs_spk_audio_insert_timer_callback(uint32_t param);
+static void bt_hs_spk_audio_insert_timer_callback(TIMER_PARAM_TYPE param);
 
 /*
  * bt_hs_spk_audio_insert_init
@@ -342,7 +342,7 @@ wiced_bool_t bt_hs_spk_audio_insert_state_check(wiced_bool_t sco)
 /*
  * bt_hs_spk_audio_insert_timer_callback
  */
-static void bt_hs_spk_audio_insert_timer_callback(uint32_t param)
+static void bt_hs_spk_audio_insert_timer_callback(TIMER_PARAM_TYPE param)
 {
     bt_hs_spk_audio_insert_stop();
 

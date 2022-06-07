@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -112,7 +112,7 @@ static wiced_result_t service_transport_set_detect_on(void);
 
 static void app_service_action_arbitrator( app_service_action_t action );
 static void app_button_event_handler( const button_manager_button_t* button, button_manager_event_t event, button_manager_button_state_t state );
-static void bt_service_timer_cb(uint32_t arg);
+static void bt_service_timer_cb(TIMER_PARAM_TYPE arg);
 /******************************************************
  *               Variable Definitions
  ******************************************************/
@@ -239,7 +239,7 @@ static wiced_result_t service_media_backward(void)
     return result;
 }
 
-static void bt_service_timer_cb(uint32_t arg)
+static void bt_service_timer_cb(TIMER_PARAM_TYPE arg)
 {
     bt_hs_spk_button_set_discovery(WICED_FALSE);
 }

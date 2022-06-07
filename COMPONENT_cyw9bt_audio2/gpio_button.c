@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -132,9 +132,8 @@ wiced_result_t gpio_button_enable( const gpio_button_t* button )
     {
         trigger = button->trigger;
     }
-
     wiced_hal_gpio_configure_pin( (uint32_t)button->gpio, WICED_GPIO_BUTTON_SETTINGS((uint32_t)trigger),
-		(uint32_t)(( button->polarity == WICED_ACTIVE_HIGH )? INPUT_PULL_UP: INPUT_PULL_DOWN));
+		(uint32_t)(( button->polarity == WICED_ACTIVE_HIGH ) ? GPIO_PIN_OUTPUT_HIGH : GPIO_PIN_OUTPUT_LOW));
 #endif
 
     wiced_hal_gpio_register_pin_for_interrupt((uint16_t) button->gpio,

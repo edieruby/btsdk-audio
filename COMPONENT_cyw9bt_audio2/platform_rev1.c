@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -41,13 +41,7 @@
 #include "platform_audio_effects.h"
 #include "platform.h"
 #include "wiced_platform.h"
-#ifdef CYW55572
-#include "cycfg_pins.h"  //it will remove when GeneratedSource/cycfg_pins.h is correct
-#else
-#if !defined(CYW43012C0) || (defined(USE_DESIGN_MODUS) && USE_DESIGN_MODUS)
-#include "GeneratedSource/cycfg_pins.h"
-#endif
-#endif
+#include "cycfg_pins.h"
 
 gpio_button_t platform_gpio_buttons[] =
 {

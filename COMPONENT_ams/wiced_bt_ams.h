@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -269,10 +269,11 @@ typedef union
 /**
  * AMS Client Event Handler
  *
+ * @index           connection index
  * @param event     refer to wiced_bt_ams_client_event_t
  * @param p_data    refer to wiced_bt_ams_client_event_data_t
  */
-typedef void (wiced_bt_ams_client_event_handler_t)(wiced_bt_ams_client_event_t event, wiced_bt_ams_client_event_data_t *p_data);
+typedef void (wiced_bt_ams_client_event_handler_t)(uint8_t index, wiced_bt_ams_client_event_t event, wiced_bt_ams_client_event_data_t *p_data);
 
 /**
  * AMS Client Module configuration
@@ -290,12 +291,14 @@ typedef struct
  *
  * Initialize the AMS Client module and start search for characteristics.
  *
+ * @max_connection   - max connection
+ * @index            - connection index
  * @param p_config  - Configuration
  *
  * @return  WICED_TRUE  : Success
  *          WICED_FALSE : Fail
  */
-wiced_bool_t wiced_bt_ams_client_initialize(wiced_bt_ams_client_config_t *p_config);
+wiced_bool_t wiced_bt_ams_client_initialize(uint8_t max_connection, uint8_t index, wiced_bt_ams_client_config_t *p_config);
 
 /**
  * While the library performs GATT discovery the application shall pass discovery
@@ -304,10 +307,11 @@ wiced_bool_t wiced_bt_ams_client_initialize(wiced_bt_ams_client_config_t *p_conf
  * control, the entity update, and the entity attribute. The second has characteristic
  * client configuration descriptor
  *
+ * @param           index    : connection index
  * @param           p_data   : Discovery result data as passed from the stack.
  * @return          none
  */
-void wiced_bt_ams_client_discovery_result(wiced_bt_gatt_discovery_result_t *p_data);
+void wiced_bt_ams_client_discovery_result(uint8_t index, wiced_bt_gatt_discovery_result_t *p_data);
 
 /**
  * While the library performs GATT discovery the application shall pass discovery
@@ -315,20 +319,21 @@ void wiced_bt_ams_client_discovery_result(wiced_bt_gatt_discovery_result_t *p_da
  * steps this function initiates the next discovery request or write request to
  * configure the AMS service on the iOS device.
  *
+ * @param           index    : connection index
  * @param           p_data   : Discovery complete data as passed from the stack.
  * @return          none
  */
-void wiced_bt_ams_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *p_data);
+void wiced_bt_ams_client_discovery_complete(uint8_t index, wiced_bt_gatt_discovery_complete_t *p_data);
 
 /**
  * wiced_bt_ams_client_connection_check
  *
  * Check the AMS connection status
- *
+ * @param   index       : connection index
  * @return  WICED_TRUE  : Connection up
  *          WICED_FALSE : Connection down
  */
-wiced_bool_t wiced_bt_ams_client_connection_check(void);
+wiced_bool_t wiced_bt_ams_client_connection_check(uint8_t index);
 
 /**
  * Application should call this function when BLE connection with a peer
@@ -343,19 +348,21 @@ void wiced_bt_ams_client_connection_up(wiced_bt_gatt_connection_status_t *p_conn
  * The application should call this function when BLE connection with a peer
  * device has been disconnected.
  *
+ * @index           connection index
  * @param           p_conn_status  : pointer to a wiced_bt_gatt_connection_status_t which includes the address and connection ID.
  * @return          none
  */
-void wiced_bt_ams_client_connection_down(wiced_bt_gatt_connection_status_t *p_conn_status);
+void wiced_bt_ams_client_connection_down(uint8_t index, wiced_bt_gatt_connection_status_t *p_conn_status);
 
 /**
  * The application should call this function when it receives GATT Write Response
  * for the attribute handle which belongs to the AMS service.
  *
+ * @index           connection index
  * @param           p_data  : pointer to a GATT operation complete data structure.
  * @return          none
  */
-void wiced_bt_ams_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ams_client_write_rsp(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /**
  * wiced_bt_ams_client_read_rsp
@@ -363,18 +370,20 @@ void wiced_bt_ams_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data);
  * Process read response from the stack.
  * Application passes it here if handle belongs to our service.
  *
+ * @index           : connection index
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ams_client_read_rsp(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ams_client_read_rsp(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /**
  * wiced_bt_ams_client_send_remote_command
  *
  * Send AMS remote command to AMS server.
  *
+ * @param index : connection index
  * @param remote_command_id : refer to AMS_REMOTE_COMMAND_ID
  */
-void wiced_bt_ams_client_send_remote_command(uint8_t remote_command_id);
+void wiced_bt_ams_client_send_remote_command(uint8_t index, uint8_t remote_command_id);
 
 /**
  * wiced_bt_ams_client_notification_handler
@@ -382,9 +391,10 @@ void wiced_bt_ams_client_send_remote_command(uint8_t remote_command_id);
  * Process GATT Notifications from the client.  Application passes it here only
  * if the handle belongs to this service.
  *
+ * @index           connection index
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ams_client_notification_handler(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /**
  * wiced_bt_ams_client_indication_handler
@@ -392,9 +402,10 @@ void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t
  * Process GATT Indications from the client.  Application passes it here only
  * if the handle belongs to this service.
  *
+ * @index           connection index
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ams_client_indication_handler(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ams_client_indication_handler(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /** @} wiced_bt_ams_api_functions */
 

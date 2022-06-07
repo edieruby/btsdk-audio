@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -52,10 +52,15 @@
 #include "wiced_bt_gatt.h"
 #include "wiced_bt_trace.h"
 #include "wiced_bt_avrc_defs.h"
-#include "wiced_bt_ams.h"
 
 #include "wiced_memory.h"
 #include "string.h"
+
+#if BTSTACK_VER < 0x03000001
+#include "ams_v1.h"
+#else
+#include "ams_v3.h"
+#endif
 
 /******************************************************
  *                      Constants
@@ -108,42 +113,10 @@ static char *TrackAttributeId[] =
 };
 #endif
 
-// service discovery states
-enum
-{
-    AMS_CLIENT_STATE_IDLE                                           = 0x00,
-    AMS_CLIENT_STATE_DISCOVER_ENTITY_UPDATE_CCCD                    = 0x01,
-    AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_CCCD                       = 0x02,
-    AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_PLAYER                     = 0x03,
-    AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_QUEUE                      = 0x04,
-    AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_TRACK                      = 0x05,
-};
-
-/******************************************************
- *                     Structures
- ******************************************************/
-typedef struct t_AMS_CLIENT
-{
-    uint8_t   state;
-    uint16_t  conn_id;
-    uint16_t  ams_e_handle;
-    uint16_t  remote_control_char_hdl;
-    uint16_t  remote_control_val_hdl;
-    uint16_t  entity_update_char_hdl;
-    uint16_t  entity_update_val_hdl;
-    uint16_t  entity_update_cccd_hdl;
-    uint16_t  entity_attribute_char_hdl;
-    uint16_t  entity_attribute_val_hdl;
-
-    uint8_t   playback_status;
-
-    wiced_bt_ams_client_event_handler_t *p_app_cb;
-} AMS_CLIENT;
-
 /******************************************************
  *               Variables Definitions
  ******************************************************/
-AMS_CLIENT  ams_client;
+AMS_CLIENT  *ams_client = NULL;
 
 // Following table translates from AMS play status to AVRC status
 uint8_t ams_client_to_hci_playback_status[] = {AVRC_PLAYSTATE_PAUSED, AVRC_PLAYSTATE_PLAYING, AVRC_PLAYSTATE_REV_SEEK, AVRC_PLAYSTATE_FWD_SEEK};
@@ -198,21 +171,13 @@ const char AMS_ENTITY_ATTRIBUTE[]    = {0xD7, 0xD5, 0xBB, 0x70, 0xA8, 0xA3, 0xAB
 /******************************************************
  *               Function Prototypes
  ******************************************************/
-static wiced_bt_gatt_status_t    ams_client_entity_update_write(uint8_t entity_id, uint8_t *p_attributes, int num_attributes);
-static void                      ams_client_process_playback_info(uint8_t *p_info, int len);
-static void                      ams_client_process_volume_info(uint8_t *p_info, int len);
-static void                      ams_client_process_shuffle_mode(uint8_t *p_info, int len);
-static void                      ams_client_process_repeat_mode(uint8_t *p_info, int len);
-static void                      ams_client_send_track_info(uint32_t attribute_id, uint8_t *attribute, uint16_t attribute_len);
-static void                      ams_client_process_queue_index(uint8_t *p_info, int len);
+static void                      ams_client_process_playback_info(uint8_t index, uint8_t *p_info, int len);
+static void                      ams_client_process_volume_info(uint8_t index, uint8_t *p_info, int len);
+static void                      ams_client_process_shuffle_mode(uint8_t index, uint8_t *p_info, int len);
+static void                      ams_client_process_repeat_mode(uint8_t index, uint8_t *p_info, int len);
+static void                      ams_client_send_track_info(uint8_t index, uint32_t attribute_id, uint8_t *attribute, uint16_t attribute_len);
+static void                      ams_client_process_queue_index(uint8_t index, uint8_t *p_info, int len);
 static int                       ams_client_process_get_track_duration_len(uint8_t *p_info, int len);
-
-#if (AMS_CLIENT_DEBUG_ENABLE != 0)
-#define AMS_CLIENT_TRACE(format, ...) \
-        WICED_BT_TRACE(format, ##__VA_ARGS__)
-#else
-#define AMS_CLIENT_TRACE(...)
-#endif
 
 /******************************************************
  *               Function Definitions
@@ -229,13 +194,13 @@ void wiced_bt_ams_client_connection_up(wiced_bt_gatt_connection_status_t *p_conn
 /*
  * Connection down event from the main application
  */
-void wiced_bt_ams_client_connection_down(wiced_bt_gatt_connection_status_t *p_conn_status)
+void wiced_bt_ams_client_connection_down(uint8_t index, wiced_bt_gatt_connection_status_t *p_conn_status)
 {
     AMS_CLIENT_TRACE("%s %B%u\n", __func__, p_conn_status->bd_addr, p_conn_status->conn_id);
 
-    if (ams_client.conn_id == p_conn_status->conn_id)
+    if (ams_client[index].conn_id == p_conn_status->conn_id)
     {
-        memset(&ams_client, 0, sizeof(ams_client));
+        memset(&ams_client[index], 0, sizeof(AMS_CLIENT));
     }
 }
 
@@ -249,7 +214,7 @@ void wiced_bt_ams_client_connection_down(wiced_bt_gatt_connection_status_t *p_co
  * @return  WICED_TRUE  : Success
  *          WICED_FALSE : Fail
  */
-wiced_bool_t wiced_bt_ams_client_initialize(wiced_bt_ams_client_config_t *p_config)
+wiced_bool_t wiced_bt_ams_client_initialize(uint8_t max_connection, uint8_t index, wiced_bt_ams_client_config_t *p_config)
 {
     wiced_bt_gatt_discovery_param_t param = {0};
     wiced_bt_gatt_status_t          status;
@@ -259,26 +224,25 @@ wiced_bool_t wiced_bt_ams_client_initialize(wiced_bt_ams_client_config_t *p_conf
 
     if ((p_config->s_handle == 0) || (p_config->e_handle == 0))
         return WICED_FALSE;
+    if (!ams_client)
+    {
+        ams_client = (AMS_CLIENT *)wiced_bt_get_buffer(max_connection*sizeof(AMS_CLIENT));
+        if (!ams_client)
+            return WICED_FALSE;
+    }
+    memset (&ams_client[index], 0, sizeof (AMS_CLIENT));
 
-    memset (&ams_client, 0, sizeof (ams_client));
-
-    ams_client.conn_id      = p_config->conn_id;
-    ams_client.ams_e_handle = p_config->e_handle;
-    ams_client.state        = AMS_CLIENT_STATE_IDLE;
-    ams_client.p_app_cb     = p_config->p_event_handler;
+    ams_client[index].conn_id      = p_config->conn_id;
+    ams_client[index].ams_e_handle = p_config->e_handle;
+    ams_client[index].state        = AMS_CLIENT_STATE_IDLE;
+    ams_client[index].p_app_cb     = p_config->p_event_handler;
 
     param.s_handle = p_config->s_handle;
     param.e_handle = p_config->e_handle;
 
-#if BTSTACK_VER >= 0x03000001
     status = wiced_bt_gatt_client_send_discover(p_config->conn_id, GATT_DISCOVER_CHARACTERISTICS, &param);
 
     AMS_CLIENT_TRACE("wiced_bt_gatt_client_send_discover %d\n", status);
-#else
-    status = wiced_bt_gatt_send_discover(p_config->conn_id, GATT_DISCOVER_CHARACTERISTICS, &param);
-
-    AMS_CLIENT_TRACE("wiced_bt_gatt_send_discover %d\n", status);
-#endif
 
     (void) status;
 
@@ -295,7 +259,7 @@ wiced_bool_t wiced_bt_ams_client_initialize(wiced_bt_ams_client_config_t *p_conf
  * @param           p_data   : Discovery result data as passed from the stack.
  * @return          none
  */
-void wiced_bt_ams_client_discovery_result(wiced_bt_gatt_discovery_result_t *p_data)
+void wiced_bt_ams_client_discovery_result(uint8_t index, wiced_bt_gatt_discovery_result_t *p_data)
 {
     AMS_CLIENT_TRACE("[%s]\n", __FUNCTION__);
 
@@ -307,21 +271,21 @@ void wiced_bt_ams_client_discovery_result(wiced_bt_gatt_discovery_result_t *p_da
         {
             if (memcmp(p_char->char_uuid.uu.uuid128, AMS_REMOTE_CONTROL, 16) == 0)
             {
-                ams_client.remote_control_char_hdl = p_char->handle;
-                ams_client.remote_control_val_hdl  = p_char->val_handle;
-                AMS_CLIENT_TRACE("remote control hdl:%04x-%04x", ams_client.remote_control_char_hdl, ams_client.remote_control_val_hdl);
+                ams_client[index].remote_control_char_hdl = p_char->handle;
+                ams_client[index].remote_control_val_hdl  = p_char->val_handle;
+                AMS_CLIENT_TRACE("remote control hdl:%04x-%04x", ams_client[index].remote_control_char_hdl, ams_client[index].remote_control_val_hdl);
             }
             else if (memcmp(p_char->char_uuid.uu.uuid128, AMS_ENTITY_UPDATE, 16) == 0)
             {
-                ams_client.entity_update_char_hdl = p_char->handle;
-                ams_client.entity_update_val_hdl  = p_char->val_handle;
-                AMS_CLIENT_TRACE("entity update hdl:%04x-%04x", ams_client.entity_update_char_hdl, ams_client.entity_update_val_hdl);
+                ams_client[index].entity_update_char_hdl = p_char->handle;
+                ams_client[index].entity_update_val_hdl  = p_char->val_handle;
+                AMS_CLIENT_TRACE("entity update hdl:%04x-%04x", ams_client[index].entity_update_char_hdl, ams_client[index].entity_update_val_hdl);
             }
             else if (memcmp(p_char->char_uuid.uu.uuid128, AMS_ENTITY_ATTRIBUTE, 16) == 0)
             {
-                ams_client.entity_attribute_char_hdl = p_char->handle;
-                ams_client.entity_attribute_val_hdl  = p_char->val_handle;
-                AMS_CLIENT_TRACE("entity attribute hdl:%04x-%04x", ams_client.entity_attribute_char_hdl, ams_client.entity_attribute_val_hdl);
+                ams_client[index].entity_attribute_char_hdl = p_char->handle;
+                ams_client[index].entity_attribute_val_hdl  = p_char->val_handle;
+                AMS_CLIENT_TRACE("entity attribute hdl:%04x-%04x", ams_client[index].entity_attribute_char_hdl, ams_client[index].entity_attribute_val_hdl);
             }
         }
     }
@@ -329,133 +293,10 @@ void wiced_bt_ams_client_discovery_result(wiced_bt_gatt_discovery_result_t *p_da
              (p_data->discovery_data.char_descr_info.type.len == 2) &&
              (p_data->discovery_data.char_descr_info.type.uu.uuid16 == UUID_DESCRIPTOR_CLIENT_CHARACTERISTIC_CONFIGURATION))
     {
-        if (ams_client.state == AMS_CLIENT_STATE_DISCOVER_ENTITY_UPDATE_CCCD)
+        if (ams_client[index].state == AMS_CLIENT_STATE_DISCOVER_ENTITY_UPDATE_CCCD)
         {
-            ams_client.entity_update_cccd_hdl = p_data->discovery_data.char_descr_info.handle;
-            AMS_CLIENT_TRACE("entity_update_cccd_hdl hdl:%04x", ams_client.entity_update_cccd_hdl);
-        }
-    }
-}
-
-/**
- * While the library performs GATT discovery the application shall pass discovery
- * complete callbacks to the AMS Library. As the GATT discovery consists or multiple
- * steps this function initiates the next discovery request or write request to
- * configure the AMS service on the iOS device.
- *
- * @param           p_data   : Discovery complete data as passed from the stack.
- * @return          none
- */
-void wiced_bt_ams_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *p_data)
-{
-    uint16_t end_handle;
-    wiced_bt_ams_client_event_data_t event_data = {0};
-    wiced_bt_gatt_discovery_param_t param = {0};
-    wiced_bt_gatt_status_t status;
-#if BTSTACK_VER >= 0x03000001
-    wiced_bt_gatt_write_hdr_t hdr;
-    uint8_t buf[2];
-    wiced_bt_gatt_discovery_type_t discovery_type = p_data->discovery_type;
-#else
-    uint8_t buf[sizeof(wiced_bt_gatt_value_t) + 1];
-    wiced_bt_gatt_value_t *p_write = (wiced_bt_gatt_value_t *) buf;
-    wiced_bt_gatt_discovery_type_t discovery_type = p_data->disc_type;
-#endif
-
-    AMS_CLIENT_TRACE("[%s] state:%d\n", __FUNCTION__, ams_client.state);
-
-    if (discovery_type == GATT_DISCOVER_CHARACTERISTICS)
-    {
-        // done with AMS characteristics, start reading descriptor handles
-        // make sure that all characteristics are present
-        if ((ams_client.remote_control_char_hdl   == 0)  ||
-            (ams_client.remote_control_val_hdl    == 0)  ||
-            (ams_client.entity_update_char_hdl    == 0)  ||
-            (ams_client.entity_update_val_hdl     == 0)  ||
-            (ams_client.entity_attribute_char_hdl == 0)  ||
-            (ams_client.entity_attribute_val_hdl  == 0))
-        {
-            // something is very wrong
-            AMS_CLIENT_TRACE("[%s] failed\n", __FUNCTION__);
-            ams_client.state = AMS_CLIENT_STATE_IDLE;
-            memset (&ams_client, 0, sizeof (ams_client));
-
-            if (ams_client.p_app_cb)
-            {
-                event_data.initialized.result = WICED_FALSE;
-                (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_INITIALIZED, &event_data);
-            }
-
-            return;
-        }
-
-        // search for descriptor from the characteristic value handle until the end of the
-        // service or until the start of the next characteristic
-        end_handle = ams_client.ams_e_handle;
-        if (ams_client.remote_control_char_hdl > ams_client.entity_update_char_hdl)
-            end_handle = ams_client.remote_control_char_hdl - 1;
-        if ((ams_client.entity_attribute_char_hdl > ams_client.entity_update_char_hdl) && (ams_client.entity_attribute_char_hdl < end_handle))
-            end_handle = ams_client.entity_attribute_char_hdl - 1;
-
-        ams_client.state = AMS_CLIENT_STATE_DISCOVER_ENTITY_UPDATE_CCCD;
-
-        param.uuid.len          = LEN_UUID_16;
-        param.uuid.uu.uuid16    = UUID_DESCRIPTOR_CLIENT_CHARACTERISTIC_CONFIGURATION;
-        param.s_handle          = ams_client.entity_update_val_hdl + 1;
-        param.e_handle          = end_handle;
-
-#if BTSTACK_VER >= 0x03000001
-        status = wiced_bt_gatt_client_send_discover(p_data->conn_id, GATT_DISCOVER_CHARACTERISTIC_DESCRIPTORS, &param);
-
-        AMS_CLIENT_TRACE("wiced_bt_gatt_client_send_discover %d\n", status);
-#else
-        status = wiced_bt_gatt_send_discover(p_data->conn_id, GATT_DISCOVER_CHARACTERISTIC_DESCRIPTORS, &param);
-
-        AMS_CLIENT_TRACE("wiced_bt_gatt_send_discover %d\n", status);
-#endif
-
-        (void) status;
-    }
-    else if (discovery_type == GATT_DISCOVER_CHARACTERISTIC_DESCRIPTORS)
-    {
-        if (ams_client.state == AMS_CLIENT_STATE_DISCOVER_ENTITY_UPDATE_CCCD)
-        {
-            // done with descriptor discovery, register for notifications for data source by writing 1 into CCCD.
-            ams_client.state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_CCCD;
-
-#if BTSTACK_VER >= 0x03000001
-            memset(&hdr, 0, sizeof(hdr));
-
-            hdr.handle   = ams_client.entity_update_cccd_hdl;
-            hdr.offset   = 0;
-            hdr.len      = 2;
-            hdr.auth_req = GATT_AUTH_REQ_NONE;
-            buf[0] = GATT_CLIENT_CONFIG_NOTIFICATION & 0xff;
-            buf[1] = (GATT_CLIENT_CONFIG_NOTIFICATION >> 8) & 0xff;
-
-            // Register with the server to receive notification
-            status = wiced_bt_gatt_client_send_write(p_data->conn_id, GATT_REQ_WRITE,
-                    &hdr, buf, NULL);
-
-            AMS_CLIENT_TRACE("wiced_bt_gatt_client_send_write %d\n", status);
-#else /* !BTSTACK_VER */
-            // Allocating a buffer to send the write request
-            memset(buf, 0, sizeof(buf));
-
-            p_write->handle   = ams_client.entity_update_cccd_hdl;
-            p_write->offset   = 0;
-            p_write->len      = 2;
-            p_write->auth_req = GATT_AUTH_REQ_NONE;
-            p_write->value[0] = GATT_CLIENT_CONFIG_NOTIFICATION & 0xff;
-            p_write->value[1] = (GATT_CLIENT_CONFIG_NOTIFICATION >> 8) & 0xff;
-
-            // Register with the server to receive notification
-            status = wiced_bt_gatt_send_write(p_data->conn_id, GATT_WRITE, p_write);
-
-            AMS_CLIENT_TRACE("wiced_bt_gatt_send_write %d\n", status);
-#endif /* BTSTACK_VER */
-
-            (void) status;
+            ams_client[index].entity_update_cccd_hdl = p_data->discovery_data.char_descr_info.handle;
+            AMS_CLIENT_TRACE("entity_update_cccd_hdl hdl:%04x", ams_client[index].entity_update_cccd_hdl);
         }
     }
 }
@@ -468,7 +309,7 @@ void wiced_bt_ams_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *
  *
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ams_client_read_rsp(wiced_bt_gatt_operation_complete_t *p_data)
+void wiced_bt_ams_client_read_rsp(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data)
 {
 }
 
@@ -479,49 +320,49 @@ void wiced_bt_ams_client_read_rsp(wiced_bt_gatt_operation_complete_t *p_data)
  * @param           p_data  : pointer to a GATT operation complete data structure.
  * @return          none
  */
-void wiced_bt_ams_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data)
+void wiced_bt_ams_client_write_rsp(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data)
 {
     wiced_bt_ams_client_event_data_t event_data = {0};
 
-    AMS_CLIENT_TRACE("[%s] state:%02x\n", __FUNCTION__, ams_client.state);
+    AMS_CLIENT_TRACE("[%s] state:%02x\n", __FUNCTION__, ams_client[index].state);
 
     // if we were writing to client configuration descriptor, start registration
     // for specific attributes
-    if (ams_client.state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_CCCD)
+    if (ams_client[index].state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_CCCD)
     {
-        ams_client.state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_PLAYER;
+        ams_client[index].state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_PLAYER;
         if (sizeof(ams_client_player_notification_attribute) != 0)
         {
-            ams_client_entity_update_write(AMS_ENTITY_ID_PLAYER, ams_client_player_notification_attribute, sizeof(ams_client_player_notification_attribute));
+            ams_client_entity_update_write(index, AMS_ENTITY_ID_PLAYER, ams_client_player_notification_attribute, sizeof(ams_client_player_notification_attribute));
             return;
         }
     }
-    if (ams_client.state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_PLAYER)
+    if (ams_client[index].state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_PLAYER)
     {
-        ams_client.state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_QUEUE;
+        ams_client[index].state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_QUEUE;
         if (sizeof(ams_client_queue_notification_attribute) != 0)
         {
-            ams_client_entity_update_write(AMS_ENTITY_ID_QUEUE, ams_client_queue_notification_attribute, sizeof(ams_client_queue_notification_attribute));
+            ams_client_entity_update_write(index, AMS_ENTITY_ID_QUEUE, ams_client_queue_notification_attribute, sizeof(ams_client_queue_notification_attribute));
             return;
         }
     }
-    if (ams_client.state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_QUEUE)
+    if (ams_client[index].state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_QUEUE)
     {
-        ams_client.state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_TRACK;
+        ams_client[index].state = AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_TRACK;
         if (sizeof(ams_client_track_notification_attribute) != 0)
         {
-            ams_client_entity_update_write(AMS_ENTITY_ID_TRACK, ams_client_track_notification_attribute, sizeof(ams_client_track_notification_attribute));
+            ams_client_entity_update_write(index, AMS_ENTITY_ID_TRACK, ams_client_track_notification_attribute, sizeof(ams_client_track_notification_attribute));
             return;
         }
     }
-    if (ams_client.state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_TRACK)
+    if (ams_client[index].state == AMS_CLIENT_STATE_WRITE_ENTITY_UPDATE_TRACK)
     {
-        ams_client.state = AMS_CLIENT_STATE_IDLE;
+        ams_client[index].state = AMS_CLIENT_STATE_IDLE;
 
-        if (ams_client.p_app_cb)
+        if (ams_client[index].p_app_cb)
         {
             event_data.initialized.result = WICED_TRUE;
-            (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_INITIALIZED, &event_data);
+            (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_INITIALIZED, &event_data);
         }
     }
 }
@@ -534,7 +375,7 @@ void wiced_bt_ams_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data)
  *
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t *p_data)
+void wiced_bt_ams_client_notification_handler(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data)
 {
     uint16_t    handle = p_data->response_data.att_value.handle;
     uint8_t     *data  = p_data->response_data.att_value.p_data;
@@ -544,7 +385,7 @@ void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t
 
     // this service should only receive notifications for entity update characteristic
     // first 3 bytes are hardcoded at Entity ID, Attribute ID and EntityUpdateFlags
-    if ((handle != ams_client.entity_update_val_hdl) || (len < 3))
+    if ((handle != ams_client[index].entity_update_val_hdl) || (len < 3))
     {
         AMS_CLIENT_TRACE("AMS Notification bad handle:%02x, %d\n", (uint16_t )handle, len);
         return;
@@ -579,21 +420,21 @@ void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t
         switch(attrib_id)
         {
         case AMS_PLAYER_ATTRIBUTE_ID_NAME:
-            if (ams_client.p_app_cb)
+            if (ams_client[index].p_app_cb)
             {
                 event_data.notification.opcode      = WICED_BT_AMS_CLIENT_NOTIFICATION_PLAYER_NAME;
                 event_data.notification.data_len    = len - 3;
                 event_data.notification.p_data      = &data[3];
 
-                (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+                (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
             }
             break;
 
         case AMS_PLAYER_ATTRIBUTE_ID_PLAYBACK_INFO:
-            ams_client_process_playback_info(&data[3], len - 3);
+            ams_client_process_playback_info(index, &data[3], len - 3);
             break;
         case AMS_PLAYER_ATTRIBUTE_ID_VOLUME:
-            ams_client_process_volume_info(&data[3], len - 3);
+            ams_client_process_volume_info(index, &data[3], len - 3);
             break;
         default:
             break;
@@ -603,16 +444,16 @@ void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t
         switch(attrib_id)
         {
         case AMS_QUEUE_ATTRIBUTE_ID_INDEX:
-            ams_client_process_queue_index(&data[3], len - 3);
+            ams_client_process_queue_index(index, &data[3], len - 3);
             break;
         case AMS_QUEUE_ATTRIBUTE_ID_COUNT:
-            ams_client_send_track_info(AVRC_MEDIA_ATTR_ID_NUM_TRACKS, &data[3], len - 3);
+            ams_client_send_track_info(index, AVRC_MEDIA_ATTR_ID_NUM_TRACKS, &data[3], len - 3);
             break;
         case AMS_QUEUE_ATTRIBUTE_ID_SHUFFLE_MODE:
-            ams_client_process_shuffle_mode(&data[3], len - 3);
+            ams_client_process_shuffle_mode(index, &data[3], len - 3);
             break;
         case AMS_QUEUE_ATTRIBUTE_ID_REPEAT_MODE:
-            ams_client_process_repeat_mode(&data[3], len - 3);
+            ams_client_process_repeat_mode(index, &data[3], len - 3);
             break;
         default:
             break;
@@ -622,16 +463,16 @@ void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t
         switch(attrib_id)
         {
         case AMS_TRACK_ATTRIBUTE_ID_ARTIST:
-            ams_client_send_track_info(AVRC_MEDIA_ATTR_ID_ARTIST, &data[3], len - 3);
+            ams_client_send_track_info(index, AVRC_MEDIA_ATTR_ID_ARTIST, &data[3], len - 3);
             break;
         case AMS_TRACK_ATTRIBUTE_ID_ALBUM:
-            ams_client_send_track_info(AVRC_MEDIA_ATTR_ID_ALBUM, &data[3], len - 3);
+            ams_client_send_track_info(index, AVRC_MEDIA_ATTR_ID_ALBUM, &data[3], len - 3);
             break;
         case AMS_TRACK_ATTRIBUTE_ID_TITLE:
-            ams_client_send_track_info(AVRC_MEDIA_ATTR_ID_TITLE, &data[3], len - 3);
+            ams_client_send_track_info(index, AVRC_MEDIA_ATTR_ID_TITLE, &data[3], len - 3);
             break;
         case AMS_TRACK_ATTRIBUTE_ID_DURATION:
-            ams_client_send_track_info(AVRC_MEDIA_ATTR_ID_PLAYING_TIME, &data[3],
+            ams_client_send_track_info(index, AVRC_MEDIA_ATTR_ID_PLAYING_TIME, &data[3],
                     ams_client_process_get_track_duration_len(&data[3], len - 3));
             break;
         default:
@@ -648,104 +489,14 @@ void wiced_bt_ams_client_notification_handler(wiced_bt_gatt_operation_complete_t
  *
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ams_client_indication_handler(wiced_bt_gatt_operation_complete_t *p_data)
+void wiced_bt_ams_client_indication_handler(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data)
 {
-}
-
-/*
- * Send command to iOS device to indicate which attributes are interested in for specific entity.
- */
-wiced_bt_gatt_status_t ams_client_entity_update_write(uint8_t entity_id, uint8_t *p_attributes, int num_attributes)
-{
-    wiced_bt_gatt_status_t status = WICED_BT_GATT_SUCCESS;
-#if BTSTACK_VER >= 0x03000001
-    uint8_t buf[10];
-    uint8_t *p_write = buf;
-    wiced_bt_gatt_write_hdr_t gatt_hdr;
-
-    // Allocating a buffer to send the write request
-    memset(buf, 0, sizeof(buf));
-
-    gatt_hdr.handle   = ams_client.entity_update_val_hdl;
-    gatt_hdr.len      = num_attributes + 1;
-    gatt_hdr.auth_req = GATT_AUTH_REQ_NONE;
-    gatt_hdr.offset   = 0;
-
-    p_write[0] = entity_id;
-    memcpy(&p_write[1], p_attributes, num_attributes);
-
-    status = wiced_bt_gatt_client_send_write(ams_client.conn_id, GATT_REQ_WRITE, &gatt_hdr, p_write, NULL);
-
-    AMS_CLIENT_TRACE("wiced_bt_gatt_client_send_write conn_id:%d %d\n", ams_client.conn_id, status);
-
-#else /* !BTSTACK_VER */
-    uint8_t                buf[sizeof(wiced_bt_gatt_value_t) + 10];
-    wiced_bt_gatt_value_t *p_write = (wiced_bt_gatt_value_t*)buf;
-
-    // Allocating a buffer to send the write request
-    memset(buf, 0, sizeof(buf));
-
-    p_write->handle   = ams_client.entity_update_val_hdl;
-    p_write->len      = num_attributes + 1;
-    p_write->auth_req = GATT_AUTH_REQ_NONE;
-    p_write->value[0] = entity_id;
-    memcpy (&p_write->value[1], p_attributes, num_attributes);
-
-    status = wiced_bt_gatt_send_write(ams_client.conn_id, GATT_WRITE, p_write);
-
-    AMS_CLIENT_TRACE("wiced_bt_gatt_send_write conn_id:%d %d\n", ams_client.conn_id, status);
-
-#endif /* BTSTACK_VER */
-    return status;
-}
-
-/**
- * wiced_bt_ams_client_send_remote_command
- *
- * Send AMS remote command to AMS server.
- *
- * @param remote_command_id : refer to AMS_REMOTE_COMMAND_ID
- */
-void wiced_bt_ams_client_send_remote_command(uint8_t remote_command_id)
-{
-    wiced_bool_t           bfound = WICED_TRUE;
-    wiced_bt_gatt_status_t status = WICED_BT_GATT_SUCCESS;
-#if BTSTACK_VER >= 0x03000001
-    wiced_bt_gatt_write_hdr_t write;
-
-    // Allocating a buffer to send the write request
-    memset(&write, 0, sizeof(wiced_bt_gatt_write_hdr_t));
-
-    write.handle    = ams_client.remote_control_val_hdl;
-    write.len       = 1;
-    write.offset    = 0;
-    write.auth_req  = GATT_AUTH_REQ_NONE;
-
-    status = wiced_bt_gatt_client_send_write(ams_client.conn_id, GATT_REQ_WRITE, &write, &remote_command_id, NULL);
-
-#else /* !BTSTACK_VER */
-    wiced_bt_gatt_value_t  write;
-
-    // Allocating a buffer to send the write request
-    memset(&write, 0, sizeof(wiced_bt_gatt_value_t));
-
-    write.handle    = ams_client.remote_control_val_hdl;
-    write.len       = 1;
-    write.auth_req  = GATT_AUTH_REQ_NONE;
-    write.value[0]  = remote_command_id;
-
-    status = wiced_bt_gatt_send_write(ams_client.conn_id, GATT_WRITE, &write);
-
-#endif /* BTSTACK_VER */
-    AMS_CLIENT_TRACE("wiced_bt_ams_client_send_remote_command (%d, %d, %d)\n", ams_client.conn_id, remote_command_id, status);
-
-    (void) status;
 }
 
 /*
  * Process playback information from the iOS device
  */
-void ams_client_process_playback_info(uint8_t *p_info, int len)
+void ams_client_process_playback_info(uint8_t index, uint8_t *p_info, int len)
 {
     uint8_t playback_status = p_info[0] - '0';
     uint32_t elapsed_time = 0;
@@ -759,17 +510,17 @@ void ams_client_process_playback_info(uint8_t *p_info, int len)
         AMS_CLIENT_TRACE("failed\n");
         return;
     }
-    if (playback_status != ams_client.playback_status)
+    if (playback_status != ams_client[index].playback_status)
     {
-        ams_client.playback_status = playback_status;
+        ams_client[index].playback_status = playback_status;
 
-        if (ams_client.p_app_cb)
+        if (ams_client[index].p_app_cb)
         {
             event_data.notification.opcode      = WICED_BT_AMS_CLIENT_NOTIFICATION_PLAY_STATUS;
             event_data.notification.data_len    = sizeof(playback_status);
             event_data.notification.p_data      = &ams_client_to_hci_playback_status[playback_status];
 
-            (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+            (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
         }
     }
 
@@ -792,20 +543,20 @@ void ams_client_process_playback_info(uint8_t *p_info, int len)
         len--;
     }
 
-    if (ams_client.p_app_cb)
+    if (ams_client[index].p_app_cb)
     {
         event_data.notification.opcode      = WICED_BT_AMS_CLIENT_NOTIFICATION_PALY_POSITION;
         event_data.notification.data_len    = sizeof(elapsed_time);
         event_data.notification.p_data      = (uint8_t *) &elapsed_time;
 
-        (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+        (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
     }
 }
 
 /*
  * Process volume change notification from the iOS device
  */
-void ams_client_process_volume_info(uint8_t *p_info, int len)
+void ams_client_process_volume_info(uint8_t index, uint8_t *p_info, int len)
 {
     uint8_t volume_level = 0;
     wiced_bt_ams_client_event_data_t event_data = {0};
@@ -822,13 +573,13 @@ void ams_client_process_volume_info(uint8_t *p_info, int len)
     if (len > 3)
         volume_level += (p_info[3] - '0');
 
-    if (ams_client.p_app_cb)
+    if (ams_client[index].p_app_cb)
     {
         event_data.notification.opcode      = WICED_BT_AMS_CLIENT_NOTIFICATION_VOLUME_LEVEL;
         event_data.notification.data_len    = sizeof(volume_level);
         event_data.notification.p_data      = &volume_level;
 
-        (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+        (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
     }
 }
 
@@ -872,7 +623,7 @@ void ams_client_u32toa(char * p_buffer, int buffer_len, uint32_t value)
  * Convert the received string (number) to an uint32, add one and convert it
  * back to a string
  */
-void ams_client_process_queue_index(uint8_t *p_info, int len)
+void ams_client_process_queue_index(uint8_t index, uint8_t *p_info, int len)
 {
     uint32_t track_number = 0;
     int     i;
@@ -888,14 +639,14 @@ void ams_client_process_queue_index(uint8_t *p_info, int len)
 
     ams_client_u32toa(queue_idx_str, sizeof(queue_idx_str), track_number);
 
-    ams_client_send_track_info(AVRC_MEDIA_ATTR_ID_TRACK_NUM,
+    ams_client_send_track_info(index, AVRC_MEDIA_ATTR_ID_TRACK_NUM,
             (uint8_t*)queue_idx_str, strlen(queue_idx_str));
 }
 
 /*
  * Process shuffle mode change notification from the iOS device
  */
-void ams_client_process_shuffle_mode(uint8_t *p_info, int len)
+void ams_client_process_shuffle_mode(uint8_t index, uint8_t *p_info, int len)
 {
     uint8_t  shuffle_mode = p_info[0] - '0';
     wiced_bt_ams_client_event_data_t event_data;
@@ -907,7 +658,7 @@ void ams_client_process_shuffle_mode(uint8_t *p_info, int len)
         return;
     }
 
-    if (ams_client.p_app_cb)
+    if (ams_client[index].p_app_cb)
     {
         setting.setting_id                  = AVRC_PLAYER_SETTING_SHUFFLE;
         setting.mode                        = ams_client_to_hci_shuffle_mode[shuffle_mode];
@@ -916,14 +667,14 @@ void ams_client_process_shuffle_mode(uint8_t *p_info, int len)
         event_data.notification.data_len    = sizeof(wiced_bt_ams_client_notification_data_setting_change_t);
         event_data.notification.p_data      = (uint8_t *) &setting;
 
-        (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+        (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
     }
 }
 
 /*
  * Process shuffle mode change notification from the iOS device
  */
-void ams_client_process_repeat_mode(uint8_t *p_info, int len)
+void ams_client_process_repeat_mode(uint8_t index, uint8_t *p_info, int len)
 {
     uint8_t  repeat_mode = p_info[0] - '0';
     wiced_bt_ams_client_event_data_t event_data;
@@ -935,7 +686,7 @@ void ams_client_process_repeat_mode(uint8_t *p_info, int len)
         return;
     }
 
-    if (ams_client.p_app_cb)
+    if (ams_client[index].p_app_cb)
     {
         setting.setting_id                  = AVRC_PLAYER_SETTING_REPEAT;
         setting.mode                        = ams_client_to_hci_repeat_mode[repeat_mode];
@@ -944,7 +695,7 @@ void ams_client_process_repeat_mode(uint8_t *p_info, int len)
         event_data.notification.data_len    = sizeof(wiced_bt_ams_client_notification_data_setting_change_t);
         event_data.notification.p_data      = (uint8_t *) &setting;
 
-        (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+        (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
     }
 }
 
@@ -967,12 +718,12 @@ int ams_client_process_get_track_duration_len(uint8_t *p_info, int len)
 
 }
 
-static void ams_client_send_track_info(uint32_t attribute_id, uint8_t *attribute, uint16_t attribute_len)
+static void ams_client_send_track_info(uint8_t index, uint32_t attribute_id, uint8_t *attribute, uint16_t attribute_len)
 {
     wiced_bt_ams_client_event_data_t event_data;
     wiced_bt_ams_client_notification_data_track_info_t *p_track_info = NULL;
 
-    if (ams_client.p_app_cb == NULL)
+    if (ams_client[index].p_app_cb == NULL)
     {
         return;
     }
@@ -995,7 +746,7 @@ static void ams_client_send_track_info(uint32_t attribute_id, uint8_t *attribute
 
     event_data.notification.p_data = (uint8_t *) p_track_info;
 
-    (*ams_client.p_app_cb)(WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
+    (*ams_client[index].p_app_cb)(index, WICED_BT_AMS_CLIENT_EVENT_NOTIFICATION, &event_data);
 
     wiced_bt_free_buffer((void *) p_track_info);
 }
@@ -1004,11 +755,11 @@ static void ams_client_send_track_info(uint32_t attribute_id, uint8_t *attribute
  * wiced_bt_ams_client_connection_check
  *
  * Check the AMS connection status
- *
+ * @param   index       : Connect index
  * @return  WICED_TRUE  : Connection up
  *          WICED_FALSE : Connection down
  */
-wiced_bool_t wiced_bt_ams_client_connection_check(void)
+wiced_bool_t wiced_bt_ams_client_connection_check(uint8_t index)
 {
-    return (ams_client.conn_id != 0);
+    return (ams_client && (ams_client[index].conn_id != 0));
 }

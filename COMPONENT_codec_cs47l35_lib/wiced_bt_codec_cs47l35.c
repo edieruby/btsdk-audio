@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -590,6 +590,11 @@ void wiced_bt_codec_cs47l35_set_input_volume(uint8_t left_vol, uint8_t right_vol
 void wiced_bt_codec_cs47l35_set_sink(cs47l35_output_t output)
 {
     codec_cs47l35_output = output;
+}
+
+void wiced_bt_codec_cs47l35_set_sink_mono2stereo(void)
+{
+  codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 1);
 }
 
 void codec_cs47l35_set_sink(cs47l35_output_t output, uint8_t mono_input)

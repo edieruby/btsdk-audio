@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -511,7 +511,7 @@ static void wiced_bt_hfp_hf_indicator_event(wiced_bt_hfp_hf_scb_t *p_scb, char *
         else if (val == 0)
         {
             /* Per the errata 2043, call=0 implies there is no held/active call
-            ** Handle the case where phone doesnt send callheld=0
+            ** Handle the case where phone doesn't send callheld=0
             ** https://www.bluetooth.org/errata/errata_view.cfm?errata_id=2043
             **/
            p_scb->callheld_ind_val = 0;
@@ -1032,14 +1032,37 @@ void wiced_bt_hfp_hf_at_cback(void *user_data, uint16_t res, char *p_arg)
 
                 //Copy number
                 for (i=0;i<strlen(p_arg) && p_arg[i]!=',';i++)
-                    token[i]=p_arg[i];
-                token[i++] = '\0';
+                {
+                    if (i < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                    {
+                        token[i]=p_arg[i];
+                    }
+                }
 
-                strncpy(app_data.clip.caller_num, token, strlen(token)+1);
+                if (i < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                {
+                    token[i++] = '\0';
+                }
+
+                strncpy(app_data.clip.caller_num, token, WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH);
+
+                if (i >= WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                {
+                    app_data.clip.caller_num[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH - 1] = '\0';
+                }
                 //Copy type
-                for (;i<strlen(p_arg);i++,j++)
+                for (;i<strlen(p_arg) && j < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH ;i++,j++)
                     token[j]=p_arg[i];
-                token[j] = '\0';
+
+                if (j >= WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                {
+                    token[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH - 1] = '\0';
+                }
+                else
+                {
+                    token[j] = '\0';
+                }
+
                 app_data.clip.type = (uint8_t) utl_str2int(token);
             }
 

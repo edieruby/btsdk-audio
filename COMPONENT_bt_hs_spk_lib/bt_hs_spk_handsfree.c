@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -119,7 +119,7 @@ static void             bt_hs_spk_handsfree_event_handler_service_type(handsfree
 static void             bt_hs_spk_handsfree_event_handler_volume_change(handsfree_app_state_t *p_ctx, wiced_bt_hfp_hf_event_data_t* p_data);
 static wiced_bool_t     bt_hs_spk_handsfree_incoming_call_notification_handler(handsfree_app_state_t *p_ctx);
 static wiced_bool_t     bt_hs_spk_handsfree_outgoing_call_notification_handler(handsfree_app_state_t *p_ctx);
-static void             bt_hs_spk_handsfree_sco_connecting_protection_timeout_cb(uint32_t arg);
+static void             bt_hs_spk_handsfree_sco_connecting_protection_timeout_cb(TIMER_PARAM_TYPE arg);
 static void             bt_hs_spk_handsfree_sco_management_callback_connected(handsfree_app_state_t *p_ctx, wiced_bt_management_evt_data_t *p_data);
 static void             bt_hs_spk_handsfree_sco_management_callback_connection_request(handsfree_app_state_t *p_ctx, wiced_bt_management_evt_data_t *p_data);
 static void             bt_hs_spk_handsfree_sco_management_callback_disconnected(handsfree_app_state_t *p_ctx, wiced_bt_management_evt_data_t *p_data);
@@ -453,6 +453,7 @@ void handsfree_hfp_init(bt_hs_spk_control_config_hfp_t *p_config, BT_HS_SPK_CONT
     for (index = 0; index < WICED_BT_HFP_HF_MAX_CONN; index ++)
     {
         config.scn[index]   = WICED_HANDSFREE_SCN;
+        config.uuid[index]  = UUID_SERVCLASS_HF_HANDSFREE;
     }
 
     result = wiced_bt_hfp_hf_init(&config, handsfree_event_callback);
@@ -2893,7 +2894,7 @@ static void bt_hs_spk_handsfree_audio_connection_establish(handsfree_app_state_t
     }
 }
 
-static void bt_hs_spk_handsfree_sco_connecting_protection_timeout_cb(uint32_t arg)
+static void bt_hs_spk_handsfree_sco_connecting_protection_timeout_cb(TIMER_PARAM_TYPE arg)
 {
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -1033,14 +1033,37 @@ void wiced_bt_hfp_hf_at_cback(void *user_data, uint16_t res, char *p_arg)
 
                 //Copy number
                 for (i=0;i<strlen(p_arg) && p_arg[i]!=',';i++)
-                    token[i]=p_arg[i];
-                token[i++] = '\0';
+                {
+                    if (i < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                    {
+                        token[i]=p_arg[i];
+                    }
+                }
 
-                strncpy(app_data.clip.caller_num, token, strlen(token)+1);
+                if (i < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                {
+                    token[i++] = '\0';
+                }
+
+                strncpy(app_data.clip.caller_num, token, WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH);
+
+                if (i >= WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                {
+                    app_data.clip.caller_num[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH - 1] = '\0';
+                }
                 //Copy type
-                for (;i<strlen(p_arg);i++,j++)
+                for (;i<strlen(p_arg) && j < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH ;i++,j++)
                     token[j]=p_arg[i];
-                token[j] = '\0';
+
+                if (j >= WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
+                {
+                    token[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH - 1] = '\0';
+                }
+                else
+                {
+                    token[j] = '\0';
+                }
+
                 app_data.clip.type = (uint8_t) wiced_bt_hfp_hf_utils_str2int(token);
             }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -147,10 +147,11 @@ typedef union
 /**
  * ANCS Client Event Handler
  *
+ * @index           connection index
  * @param event     refer to wiced_bt_ancs_client_event_t
  * @param p_data    refer to wiced_bt_ancs_client_event_data_t
  */
-typedef void (wiced_bt_ancs_client_event_handler_t)(wiced_bt_ancs_client_event_t event, wiced_bt_ancs_client_event_data_t *p_data);
+typedef void (wiced_bt_ancs_client_event_handler_t)(uint8_t index, wiced_bt_ancs_client_event_t event, wiced_bt_ancs_client_event_data_t *p_data);
 
 /**
  * ANCS Client Module configuration
@@ -165,12 +166,13 @@ typedef struct
  *
  * Initialize the ANCS Client module and start search for characteristics.
  *
+ * @max_connection  - max connection
  * @param p_config  - Configuration
  *
  * @return  WICED_TRUE  : Success
  *          WICED_FALSE : Fail
  */
-wiced_bool_t wiced_bt_ancs_client_initialize(wiced_bt_ancs_client_config_t *p_config);
+wiced_bool_t wiced_bt_ancs_client_initialize(uint8_t max_connection, wiced_bt_ancs_client_config_t *p_config);
 
 /**
  * wiced_bt_ancs_client_start
@@ -180,6 +182,7 @@ wiced_bool_t wiced_bt_ancs_client_initialize(wiced_bt_ancs_client_config_t *p_co
  * The start function configures the ANCS server on the iOS device
  * for notification and configures information that the client wants to monitor.
  *
+ * @index           : connection index
  * @param conn_id   : GATT Connection ID
  * @param s_handle  : Start handle value for GATT attribute operation
  * @param e_handle  : End handle value for GATT attribute operation
@@ -187,7 +190,7 @@ wiced_bool_t wiced_bt_ancs_client_initialize(wiced_bt_ancs_client_config_t *p_co
  * @return  WICED_TRUE  : Success
  *          WICED_FALSE : Fail
  */
-wiced_bool_t wiced_bt_ancs_client_start(uint16_t conn_id, uint16_t s_handle, uint16_t e_handle);
+wiced_bool_t wiced_bt_ancs_client_start(uint8_t index, uint16_t conn_id, uint16_t s_handle, uint16_t e_handle);
 
 /**
  * The application should call this function when it discovers that connected central device
@@ -206,20 +209,22 @@ wiced_bool_t wiced_bt_ancs_client_discover(uint16_t conn_id, uint16_t s_handle, 
  * the ANCS service to the ANCS Library. The library needs to find ANCS service characteristics
  * and associated characteristic client configuration descriptors.
  *
+ * @index           connection index
  * @param           p_data   : Discovery result data as passed from the stack.
  * @return          none
  */
-void wiced_bt_ancs_client_discovery_result(wiced_bt_gatt_discovery_result_t *p_data);
+void wiced_bt_ancs_client_discovery_result(uint8_t index, wiced_bt_gatt_discovery_result_t *p_data);
 
 /**
  * While application performs GATT discovery it shall pass discovery complete callbacks
  * for the ANCS service to the ANCS Library. As the GATT discovery is perfformed in multiple steps
  * this function initiates the next discovery request.
  *
+ * @index           connection index
  * @param           p_data   : Discovery complete data as passed from the stack.
  * @return          none
  */
-void wiced_bt_ancs_client_discovery_complete(wiced_bt_gatt_discovery_complete_t *p_data);
+void wiced_bt_ancs_client_discovery_complete(uint8_t index, wiced_bt_gatt_discovery_complete_t *p_data);
 
 /**
  * The application should call this function when BLE connection with a peer
@@ -234,19 +239,21 @@ void wiced_bt_ancs_client_connection_up(wiced_bt_gatt_connection_status_t *p_con
  * The application should call this function when BLE connection with a peer
  * device has been disconnected.
  *
+ * @index           connection index
  * @param           p_conn_status  : pointer to a wiced_bt_gatt_connection_status_t which includes the address and connection ID.
  * @return          none
  */
-void wiced_bt_ancs_client_connection_down(wiced_bt_gatt_connection_status_t *p_conn_status);
+void wiced_bt_ancs_client_connection_down(uint8_t index, wiced_bt_gatt_connection_status_t *p_conn_status);
 
 /**
  * The application should call this function when it receives GATT Write Response
  * for the attribute handle which belongs to the ANCS service.
  *
+ * @index           connection index
  * @param           p_data  : pointer to a GATT operation complete data structure.
  * @return          none
  */
-void wiced_bt_ancs_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ancs_client_write_rsp(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /**
  * wiced_bt_ancs_client_read_rsp
@@ -254,21 +261,22 @@ void wiced_bt_ancs_client_write_rsp(wiced_bt_gatt_operation_complete_t *p_data);
  * Process read response from the stack.
  * Application passes it here if handle belongs to our service.
  *
+ * @index           : connection index
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ancs_client_read_rsp(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ancs_client_read_rsp(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /**
  * The application calls this function to send the command to the phone to perform specified action.
  * The action command (for example answer the call, or clear notification, is sent as a response to
  * a notification. The UID of the notification is passed back in this function along with the action ID.
  *
- * @param           conn_id : Connection ID.
+ * @param           index : Connection index.
  * @param           uid : UID as received in the notification.
  * @param           action_id : Positive or Netgative action ID for the notification specified by UID.
  * @return          Status of the GATT Write operation.
  */
-wiced_bool_t wiced_ancs_client_send_remote_command(uint32_t uid, uint32_t action_id);
+wiced_bool_t wiced_ancs_client_send_remote_command(uint8_t index, uint32_t uid, uint32_t action_id);
 
 /**
  * wiced_bt_ancs_client_notification_handler
@@ -276,9 +284,10 @@ wiced_bool_t wiced_ancs_client_send_remote_command(uint32_t uid, uint32_t action
  * Process GATT Notifications from the client.  Application passes it here only
  * if the handle belongs to this service.
  *
+ * @index           : connection index
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ancs_client_notification_handler(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ancs_client_notification_handler(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 /**
  * wiced_bt_ancs_client_indication_handler
@@ -286,9 +295,10 @@ void wiced_bt_ancs_client_notification_handler(wiced_bt_gatt_operation_complete_
  * Process GATT Indications from the client.  Application passes it here only
  * if the handle belongs to this service.
  *
+ * @index           : connection index
  * @param p_data    : refer to wiced_bt_gatt_operation_complete_t
  */
-void wiced_bt_ancs_client_indication_handler(wiced_bt_gatt_operation_complete_t *p_data);
+void wiced_bt_ancs_client_indication_handler(uint8_t index, wiced_bt_gatt_operation_complete_t *p_data);
 
 #ifdef __cplusplus
 }

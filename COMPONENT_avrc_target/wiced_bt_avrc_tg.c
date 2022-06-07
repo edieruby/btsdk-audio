@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -1624,7 +1624,7 @@ static uint8_t avrc_bld_get_num_of_item_rsp (wiced_bt_avrc_get_num_of_items_rsp_
     }
     else
     {
-        /* add fixed lenth - status(1) */
+        /* add fixed length - status(1) */
         UINT16_TO_BE_STREAM(p_data, 7);
         UINT8_TO_BE_STREAM(p_data, p_rsp->status);
         p_pkt->len = (p_data - p_start);

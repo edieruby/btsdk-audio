@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -196,9 +196,9 @@ static void         bt_hs_spk_control_local_volume_change_handler(int32_t am_vol
 static int          bt_hs_spk_control_reconnect_encryption_start(void *p_data);
 static void         bt_hs_spk_control_reconnect_out_of_range(void);
 static void         bt_hs_spk_control_reconnect_power_failure(void);
-static void         bt_hs_spk_control_reconnect_timeout_callback(uint32_t param);
+static void         bt_hs_spk_control_reconnect_timeout_callback(TIMER_PARAM_TYPE param);
 
-static void         bt_hs_spk_control_ble_conn_param_check_timer_callback(uint32_t param);
+static void         bt_hs_spk_control_ble_conn_param_check_timer_callback(TIMER_PARAM_TYPE param);
 
 extern wiced_result_t   BTM_SetPacketTypes (wiced_bt_device_address_t remote_bda, uint16_t pkt_types);
 extern wiced_bool_t     BTM_UseLeLink(wiced_bt_device_address_t bd_addr);
@@ -933,7 +933,7 @@ void bt_hs_spk_control_reconnect_info_reset(void)
  *
  * Reconnect timeout handler
  */
-static void bt_hs_spk_control_reconnect_timeout_callback(uint32_t param)
+static void bt_hs_spk_control_reconnect_timeout_callback(TIMER_PARAM_TYPE param)
 {
     bt_hs_spk_control_reconnect();
 }
@@ -2754,7 +2754,7 @@ void bt_hs_spk_control_ble_conn_param_check(void)
  *
  * LE Connection Parameter check timer callback
  */
-void bt_hs_spk_control_ble_conn_param_check_timer_callback(uint32_t param)
+void bt_hs_spk_control_ble_conn_param_check_timer_callback(TIMER_PARAM_TYPE param)
 {
     if (bt_hs_spk_audio_streaming_check(NULL) == WICED_ALREADY_CONNECTED)
     {
