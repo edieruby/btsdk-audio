@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -567,7 +567,7 @@ void bt_hs_spk_control_connection_status_callback (wiced_bt_device_address_t bd_
             return;
         }
         break;
-    case BT_TRANSPORT_LE:       // 2: BLE transport
+    case BT_TRANSPORT_LE:       // 2: LE transport
         if (bt_hs_spk_control_cb.conn_status.le.connected == WICED_TRUE)
         {
             if (is_connected == WICED_FALSE)
@@ -731,7 +731,7 @@ wiced_result_t bt_hs_spk_post_stack_init(bt_hs_spk_control_config_t *p_config)
     bt_hs_spk_control_cb.p_local_vol_chg_cb = p_config->p_local_vol_chg_cb;
     bt_hs_spk_control_cb.p_bt_visibility_chg_cb = p_config->p_bt_visibility_chg_cb;
 
-    /* Load previous connected BT devices' link keys from NVRAM. */
+    /* Load previous connected Bluetooth devices' link keys from NVRAM. */
     bt_hs_spk_control_link_keys_load();
 
     /* Initialize Audio Manager */
@@ -1018,7 +1018,7 @@ void bt_hs_spk_control_reconnect(void)
         bt_hs_spk_control_cb.reconnect.connecting = WICED_TRUE;
     }
 
-    /* Check if the target device's BT address is valid. */
+    /* Check if the target device's Bluetooth address is valid. */
     if (bt_hs_spk_control_misc_data_content_check((uint8_t *) bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr,
                                                   sizeof(wiced_bt_device_address_t)) == WICED_FALSE)
     {
@@ -1424,7 +1424,7 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
                 || !memcmp(bt_hs_spk_control_cb.linkey[i].conn_addr, link_keys_update->bd_addr, sizeof(wiced_bt_device_address_t)))
         {
             /* matched */
-            /* The content of linkkey payload passed from stack for BR/EDR link and BLE link
+            /* The content of linkkey payload passed from stack for BR/EDR link and LE link
              * is correct. No need to do the partial update behavior. */
             memcpy(&bt_hs_spk_control_cb.linkey[i], link_keys_update,
                     sizeof(bt_hs_spk_control_cb.linkey[i]));
@@ -1438,72 +1438,28 @@ static void bt_hs_spk_control_link_key_update(wiced_bt_device_link_keys_t *link_
             goto BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_SORT_AND_WRITE;
         }
 #else /* !BTSTACK_VER >= 0x03000001 */
-        if (link_keys_update->key_data.ble_addr_type & BLE_ADDR_RANDOM)
-        {
-            if ( ( ((bt_hs_spk_control_cb.linkey[i].key_data.le_keys_available_mask & BTM_LE_KEY_PID)
-                  ||(bt_hs_spk_control_cb.linkey[i].key_data.le_keys_available_mask & BTM_LE_KEY_LID) )
-                 &&(WICED_BT_SUCCESS == wiced_ble_private_device_address_resolution(link_keys_update->bd_addr,
-                                    bt_hs_spk_control_cb.linkey[i].key_data.le_keys.irk)))
-                || (memcmp((void *) bt_hs_spk_control_cb.linkey[i].bd_addr,
-                           (void *) link_keys_update->key_data.static_addr,
-                           sizeof(wiced_bt_device_address_t)) == 0))
-            {
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.le_keys_available_mask,
-                       (void *)&link_keys_update->key_data.le_keys_available_mask,
-                       sizeof(wiced_bt_dev_le_key_type_t));
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.ble_addr_type,
-                       (void *)&link_keys_update->key_data.ble_addr_type,
-                       sizeof(wiced_bt_ble_address_type_t));
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.static_addr_type,
-                       (void *)&link_keys_update->key_data.static_addr_type,
-                       sizeof(wiced_bt_ble_address_type_t));
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.static_addr,
-                       (void *)&link_keys_update->key_data.static_addr,
-                       sizeof(wiced_bt_device_address_t));
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.le_keys,
-                       (void *)&link_keys_update->key_data.le_keys,
-                       sizeof(wiced_bt_ble_keys_t));
-
-                goto BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_WRITE;
-            }
-        }
-        // The address of Record is RPA then check static address
-        else if (bt_hs_spk_control_cb.linkey[i].key_data.ble_addr_type & BLE_ADDR_RANDOM)
-        {
-            // check static_addr_type or not ?
-            if (memcmp((void *) link_keys_update->bd_addr,
-                       (void *) bt_hs_spk_control_cb.linkey[i].key_data.static_addr,
-                       sizeof(wiced_bt_device_address_t)) == 0)
-            {
-                // update BR link key only
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key_type,
-                       (void *)&link_keys_update->key_data.br_edr_key_type,
-                       sizeof(uint8_t));
-                memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key,
-                                           (void *)&link_keys_update->key_data.br_edr_key,
-                                           sizeof(wiced_bt_link_key_t));
-
-                memcpy((void *) bt_hs_spk_control_cb.linkey[i].bd_addr,
-                                   (void *) link_keys_update->bd_addr,
-                                   sizeof(wiced_bt_device_address_t));
-
-                goto BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_SORT_AND_WRITE;
-            }
-        }
-        // Same address of BT
-        else if (memcmp((void *) link_keys_update->bd_addr,
-                   (void *) bt_hs_spk_control_cb.linkey[i].bd_addr,
-                   sizeof(wiced_bt_device_address_t)) == 0)
-        {
+    // Same address of BT
+        if (memcmp((void*)link_keys_update->bd_addr,(void*)bt_hs_spk_control_cb.linkey[i].bd_addr,
+                sizeof(wiced_bt_device_address_t)) == 0)
+          {
             // update BR link key only
-            memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key_type,
-                   (void *)&link_keys_update->key_data.br_edr_key_type,
-                   sizeof(uint8_t));
-            memcpy((void *)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key,
-                                       (void *)&link_keys_update->key_data.br_edr_key,
-                                       sizeof(wiced_bt_link_key_t));
+            memcpy((void*)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key_type,
+            (void*)&link_keys_update->key_data.br_edr_key_type,
+            sizeof(uint8_t));
+            memcpy((void*)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key,
+            (void*)&link_keys_update->key_data.br_edr_key,
+            sizeof(wiced_bt_link_key_t));
+
+            if(link_keys_update->key_data.le_keys_available_mask)
+            {
+                // update LE keys
+                memcpy((void*)&bt_hs_spk_control_cb.linkey[i].key_data.le_keys_available_mask,
+                &link_keys_update->key_data.le_keys_available_mask, sizeof(wiced_bt_dev_le_key_type_t));
+                memcpy((void*)&bt_hs_spk_control_cb.linkey[i].key_data.le_keys,
+                &link_keys_update->key_data.le_keys, sizeof(wiced_bt_ble_keys_t));
+            }
             goto BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_SORT_AND_WRITE;
-        }
+            }
 #endif /* BTSTACK_VER >= 0x03000001 */
     }
 
@@ -1554,8 +1510,9 @@ BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_SORT_AND_WRITE:
     {
         bt_hs_spk_control_link_key_sort(i);
     }
-
+#if BTSTACK_VER >= 0x03000001
 BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_WRITE:
+#endif
     if ( (bt_hs_spk_audio_streaming_check(NULL) != WICED_ALREADY_CONNECTED) &&
          (bt_hs_spk_handsfree_call_session_check() != WICED_TRUE )
         )
@@ -1599,7 +1556,7 @@ BT_HS_SPK_CONTROL_LINK_KEY_UPDATE_WRITE:
 /*
  * @brief       Acquire the Bluetooth Link Key for specific device
  *
- * @param[in]   BT/BLE link key info
+ * @param[in]   Bluetooth/LE link key info
  * @param[out]  key: the stored link key if found
  * @return      WICED_TRUE: Link key for the target device is found.
  *              WICED_FALSE: Link key for the target device cannot be found.
@@ -1678,7 +1635,7 @@ static wiced_bool_t bt_hs_spk_control_link_key_get(wiced_bt_device_link_keys_t *
                 return WICED_TRUE;
             }
         }
-        // Same address of BT
+        // Same address of Bluetooth
         else if (memcmp((void *) link_keys_request->bd_addr,
                    (void *) bt_hs_spk_control_cb.linkey[i].bd_addr,
                    sizeof(wiced_bt_device_address_t)) == 0)
@@ -1690,7 +1647,7 @@ static wiced_bool_t bt_hs_spk_control_link_key_get(wiced_bt_device_link_keys_t *
             memcpy((void *)&link_keys_request->key_data.br_edr_key,
                     (void *)&bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key,
                     sizeof(wiced_bt_link_key_t));
-            WICED_BT_TRACE("Found BT link key %d\n",i);
+            WICED_BT_TRACE("Found Bluetooth link key %d\n",i);
             if (i != 0 )
             {
                 bt_hs_spk_control_link_key_update(link_keys_request);
@@ -2094,12 +2051,12 @@ wiced_result_t bt_hs_spk_control_btm_event_handler_ble_remote_conn_param_req(
 /**
  * bt_hs_spk_control_bt_power_mode_set_exclusive
  *
- * Set the BT power mode except for the target device's link
+ * Set the Bluetooth power mode except for the target device's link
  *
  * @param[in]   active: WICED_TRUE - set to active mode
  *                      WICED_FALSE - set to sniff mode
  *
- * @param[in]   bdaddr: the exclusive peer device's BT address
+ * @param[in]   bdaddr: the exclusive peer device's Bluetooth address
  *
  * @param[in]   p_cb: callback function when the power mode has been changed
  *
@@ -2201,12 +2158,12 @@ void bt_hs_spk_control_bt_power_mode_set_exclusive(wiced_bool_t active, wiced_bt
 /**
  * bt_hs_spk_control_bt_power_mode_set
  *
- * Set the BT power mode
+ * Set the Bluetooth power mode
  *
  * @param[in]   active: WICED_TRUE - set to active mode
  *                      WICED_FALSE - set to sniff mode
  *
- * @param[in]   bdaddr: peer device's BT address
+ * @param[in]   bdaddr: peer device's Bluetooth address
  *                      Set to NULL for all existent ACL links.
  *
  * @param[in]   p_cb: callback function when the power mode has been changed
@@ -2377,7 +2334,7 @@ uint16_t bt_hs_spk_control_discoverable_timeout_get(void)
  *
  * Set the sniff mode enable/disable except for the target acl connection
  *
- * @param bdaddr - the exclusive peer device's BT address
+ * @param bdaddr - the exclusive peer device's Bluetooth address
  *
  * @param enable - WICED_TRUE: enable sniff mode
  *                 WICED_FALSE: disable sniff mode
@@ -2420,7 +2377,7 @@ void bt_hs_spk_control_acl_link_policy_sniff_mode_set_exclusive(wiced_bt_device_
  *
  * Set the sniff mode enable/disable for specific/all acl connection(s)
  *
- * @param bdaddr - target peer device's BT address
+ * @param bdaddr - target peer device's Bluetooth address
  *                 NULL for all ACL connections
  * @param enable - WICED_TRUE: enable sniff mode
  *                 WICED_FALSE: disable sniff mode
@@ -2477,7 +2434,7 @@ void bt_hs_spk_control_acl_link_policy_sniff_mode_set(wiced_bt_device_address_t 
 /**
  * bt_hs_spk_control_acl_link_policy_set
  *
- * Set the BT ACL link policy.
+ * Set the Bluetooth ACL link policy.
  *
  * @param bdaddr - connection with peer device
  * @param link_policy - HCI_DISABLE_ALL_LM_MODES
@@ -2526,7 +2483,7 @@ void bt_hs_spk_control_acl_link_policy_set(wiced_bt_device_address_t bdaddr, uin
  *
  * Disconnect target peer device.
  *
- * @param bdaddr - target device's BT address
+ * @param bdaddr - target device's Bluetooth address
  *                 If this is set to NULL, all the connected devices will be disconnected
  */
 void bt_hs_spk_control_disconnect(wiced_bt_device_address_t bdaddr)
@@ -2706,7 +2663,7 @@ wiced_result_t bt_hs_spk_control_bt_role_set(wiced_bt_device_address_t bdaddr, u
 /**
  * bt_hs_spk_control_ble_conn_param_check
  *
- * Check BLE connection parameter.
+ * Check LE connection parameter.
  * This function can be called before audio stream start. It will update connection interval to
  * longer period to prevent audio glitch.
  */

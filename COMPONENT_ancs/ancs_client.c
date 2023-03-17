@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -33,7 +33,7 @@
 
 /** @file
 *
-* BLE Client for Apple Notification Center Service (ANCS)
+* Bluetooth Low Energy (LE) Client for Apple Notification Center Service (ANCS)
 *
 * During initialization the app registers with LE stack to receive various
 * notifications including bonding complete, connection status change and
@@ -217,7 +217,7 @@ static void ancs_client_send_discover(uint16_t conn_id, wiced_bt_gatt_discovery_
  ******************************************************/
 
 /**
- * The application should call this function when BLE connection with a peer
+ * The application should call this function when LE connection with a peer
  * device has been established.
  *
  * @param           p_conn_status  : pointer to a wiced_bt_gatt_connection_status_t which includes the address and connection ID.

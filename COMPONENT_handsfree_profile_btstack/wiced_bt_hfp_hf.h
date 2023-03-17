@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -65,6 +65,9 @@ extern "C"
 /** Maximum length of caller number */
 #define WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH        32
 
+/** Maximum length of caller number */
+#define WICED_BT_HFP_HF_CALLER_NAME_MAX_LENGTH          100
+
 /** Maximum length of AT command result code */
 #define WICED_BT_HFP_HF_AT_CMD_RESULT_CODE_MAX_LENGTH   256
 
@@ -94,6 +97,9 @@ extern "C"
 ******************************************************************************/
 /** HF caller number */
 typedef char wiced_bt_hfp_hf_caller_num_t[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH];
+
+/** HF caller name */
+typedef char wiced_bt_hfp_hf_caller_name_t[WICED_BT_HFP_HF_CALLER_NAME_MAX_LENGTH];
 
 /** HF AT result code */
 typedef char wiced_bt_hfp_hf_at_result_code_t[WICED_BT_HFP_HF_AT_CMD_RESULT_CODE_MAX_LENGTH];
@@ -302,6 +308,7 @@ typedef struct
 {
     wiced_bt_hfp_hf_caller_num_t caller_num;    /**< Caller number */
     uint8_t                      type;          /**< Specify format of the caller number */
+    wiced_bt_hfp_hf_caller_name_t caller_name;  /**< Caller name */
 } wiced_bt_hfp_hf_clip_data_t;
 
 /** HF AT result */

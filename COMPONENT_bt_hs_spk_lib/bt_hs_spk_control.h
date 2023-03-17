@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -120,13 +120,13 @@
 
 typedef void (BT_HS_SPK_BLE_DISCOVERABILITY_CHANGE_CB)(wiced_bool_t discoverable);
 
-/* BT connection status change callback */
+/* Bluetooth connection status change callback */
 typedef wiced_bool_t (*BT_HS_SPK_CONTROL_CONN_STATUS_CHANGE_CB)(wiced_bt_device_address_t bd_addr, uint8_t *p_features, wiced_bool_t is_connected, uint16_t handle, wiced_bt_transport_t transport, uint8_t reason);
 
-/* BT visibility (discoverability and connectivity change callback */
+/* Bluetooth visibility (discoverability and connectivity change callback */
 typedef void BT_HS_SPK_CONTROL_BT_VISIBILITY_CHANGE_CB(wiced_bool_t discoverable, wiced_bool_t connectable);
 
-/* BT power mode change callback. */
+/* Bluetooth power mode change callback. */
 typedef void (BT_HS_SPK_CONTROL_POWER_MODE_CHANGE_CB)(wiced_bt_device_address_t bdaddr, wiced_bt_dev_power_mgmt_status_t power_mode);
 
 /* Handsfree moudle HFP event pre-handler. */
@@ -289,17 +289,17 @@ typedef struct bt_hs_spk_control_config_nvram
 typedef struct bt_hs_spk_control_config
 {
     /*
-     * BT connection status change callback.
+     * Bluetooth connection status change callback.
      * If the p_conn_status_change_cb is assigned by the user application,
-     * the p_conn_status_change_cb will be executed first and the default BT connection status
+     * the p_conn_status_change_cb will be executed first and the default Bluetooth connection status
      * change callback will be executed if the return value of the p_conn_status_change_cb is set
      * to WICED_TRUE;
      */
     BT_HS_SPK_CONTROL_CONN_STATUS_CHANGE_CB     conn_status_change_cb;
 
     /*
-     * BT (BR/EDR) Visibility (discoverability and connectivity) change callback.
-     * When the BT discoverability or connectivity has been changed, this
+     * Bluetooth (BR/EDR) Visibility (discoverability and connectivity) change callback.
+     * When the Bluetooth discoverability or connectivity has been changed, this
      * callback assigned by the user application will be called for the
      * visibility change event.
      */
@@ -427,12 +427,12 @@ wiced_bool_t bt_hs_spk_control_connection_status_check_be_edr(wiced_bool_t all);
 /**
  * bt_hs_spk_control_bt_power_mode_set
  *
- * Set the BT power mode
+ * Set the Bluetooth power mode
  *
  * @param[in]   active: WICED_TRUE - set to active mode
  *                      WICED_FALSE - set to sniff mode
  *
- * @param[in]   bdaddr: peer device's BT address
+ * @param[in]   bdaddr: peer device's Bluetooth address
  *                      Set to NULL for all existent ACL links.
  *
  * @param[in]   p_cb: callback function when the power mode has been changed
@@ -450,12 +450,12 @@ wiced_result_t bt_hs_spk_control_bt_power_mode_set(wiced_bool_t active, wiced_bt
 /**
  * bt_hs_spk_control_bt_power_mode_set_exclusive
  *
- * Set the BT power mode except for the target device's link
+ * Set the Bluetooth power mode except for the target device's link
  *
  * @param[in]   active: WICED_TRUE - set to active mode
  *                      WICED_FALSE - set to sniff mode
  *
- * @param[in]   bdaddr: the exclusive peer device's BT address
+ * @param[in]   bdaddr: the exclusive peer device's Bluetooth address
  *
  * @param[in]   p_cb: callback function when the power mode has been changed
  *
@@ -552,7 +552,7 @@ wiced_result_t bt_hs_spk_control_btm_event_handler_ble_remote_conn_param_req(
  *
  * Set the sniff mode enable/disable for specific/all acl connection(s)
  *
- * @param bdaddr - target peer device's BT address
+ * @param bdaddr - target peer device's Bluetooth address
  *                 NULL for all ACL connections
  * @param enable - WICED_TRUE: enable sniff mode
  *                 WICED_FALSE: disable sniff mode
@@ -564,7 +564,7 @@ void bt_hs_spk_control_acl_link_policy_sniff_mode_set(wiced_bt_device_address_t 
  *
  * Set the sniff mode enable/disable except for the target acl connection
  *
- * @param bdaddr - the exclusive peer device's BT address
+ * @param bdaddr - the exclusive peer device's Bluetooth address
  *
  * @param enable - WICED_TRUE: enable sniff mode
  *                 WICED_FALSE: disable sniff mode
@@ -574,7 +574,7 @@ void bt_hs_spk_control_acl_link_policy_sniff_mode_set_exclusive(wiced_bt_device_
 /**
  * bt_hs_spk_control_acl_link_policy_set
  *
- * Set the BT ACL link policy.
+ * Set the Bluetooth ACL link policy.
  *
  * @param bdaddr - connection with peer device
  * @param link_policy - HCI_DISABLE_ALL_LM_MODES
@@ -590,7 +590,7 @@ void bt_hs_spk_control_acl_link_policy_set(wiced_bt_device_address_t bdaddr, uin
  *
  * Disconnect target peer device.
  *
- * @param bdaddr - target device's BT address
+ * @param bdaddr - target device's Bluetooth address
  *                 If this is set to NULL, all the connected devices will be disconnected
  */
 void bt_hs_spk_control_disconnect(wiced_bt_device_address_t bdaddr);
@@ -665,7 +665,7 @@ wiced_result_t bt_hs_spk_control_bt_role_set(wiced_bt_device_address_t bdaddr, u
 /**
  * bt_hs_spk_control_ble_conn_param_check
  *
- * Check BLE connection parameter.
+ * Check LE connection parameter.
  * This function can be called before audio stream start. It will update connection interval to
  * longer period to prevent audio glitch.
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -96,7 +96,12 @@ void wiced_bt_hfp_hf_rfcomm_mgmt_cback(wiced_bt_rfcomm_result_t code, uint16_t h
         msg.event = WICED_BT_HFP_HF_RFC_CONNECT_EVT;
 
     } else if ( (code == WICED_BT_RFCOMM_PEER_CONNECTION_FAILED)
-             || (code == WICED_BT_RFCOMM_CLOSED) )
+            || (code == WICED_BT_RFCOMM_LINE_ERR)
+            || (code == WICED_BT_RFCOMM_START_FAILED)
+            || (code == WICED_BT_RFCOMM_PAR_NEG_FAILED)
+            || (code == WICED_BT_RFCOMM_RFCOMM_NEG_FAILED)
+            || (code == WICED_BT_RFCOMM_SEC_FAILED)
+            || (code == WICED_BT_RFCOMM_CLOSED) )
     {
         /* Disconnected */
         WICED_BTHFP_TRACE("%s: Disconnected", __FUNCTION__);

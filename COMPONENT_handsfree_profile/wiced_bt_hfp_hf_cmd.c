@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -1027,7 +1027,7 @@ void wiced_bt_hfp_hf_at_cback(void *user_data, uint16_t res, char *p_arg)
         case WICED_BT_HFP_HF_RES_BINP:
             {
                 wiced_bt_hfp_hf_caller_num_t token;
-                int i,j=0;
+                int i=0,j=0;
                 // p_arg have caller number and type separated by ','
 
                 //Copy number
@@ -1051,9 +1051,10 @@ void wiced_bt_hfp_hf_at_cback(void *user_data, uint16_t res, char *p_arg)
                     app_data.clip.caller_num[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH - 1] = '\0';
                 }
                 //Copy type
-                for (;i<strlen(p_arg) && j < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH ;i++,j++)
+                for (;i<strlen(p_arg) && j < WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH && p_arg[i]!=',' ;i++,j++)
                     token[j]=p_arg[i];
 
+                i++;
                 if (j >= WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH)
                 {
                     token[WICED_BT_HFP_HF_CALLER_NUMBER_MAX_LENGTH - 1] = '\0';
@@ -1064,6 +1065,25 @@ void wiced_bt_hfp_hf_at_cback(void *user_data, uint16_t res, char *p_arg)
                 }
 
                 app_data.clip.type = (uint8_t) utl_str2int(token);
+
+                for (; i<strlen(p_arg) && p_arg[i]!=','; i++);
+                i++;//Process 3rd ','
+                for (; i<strlen(p_arg) && p_arg[i]!=','; i++);
+                i++;//Process 4th ','
+
+                for (j=0; i<strlen(p_arg) && p_arg[i]!=',' && j < WICED_BT_HFP_HF_CALLER_NAME_MAX_LENGTH; i++, j++)
+                {
+                    app_data.clip.caller_name[j] = p_arg[i];
+                }
+
+                if (j >= WICED_BT_HFP_HF_CALLER_NAME_MAX_LENGTH)
+                {
+                    app_data.clip.caller_name[WICED_BT_HFP_HF_CALLER_NAME_MAX_LENGTH - 1] = '\0';
+                }
+                else
+                {
+                    app_data.clip.caller_name[j] = '\0';
+                }
             }
 
             break;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -235,7 +235,7 @@ static void bt_hs_spk_handsfree_cb_init(void)
     // SCO voice path
     if (bt_hs_spk_get_audio_sink() == AM_UART)
     {
-#if defined(CYW43012C0) || defined(CYW55572A0) || defined(CYW20721B2)
+#if defined(CYW43012C0) || defined(CYW20721B2)
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_APP_CB;
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = &bt_hs_spk_handsfree_sco_data_app_callback;
 #elif defined(CYW55572A1)
@@ -1375,7 +1375,7 @@ static void bt_hs_spk_handsfree_event_handler_volume_change(handsfree_app_state_
  */
 static void bt_hs_spk_handsfree_event_handler_clip_ind(handsfree_app_state_t *p_ctx, wiced_bt_hfp_hf_event_data_t* p_data)
 {
-    WICED_BT_TRACE("HF CLIP Ind (%d, %s)\n", p_data->clip.type, p_data->clip.caller_num);
+    WICED_BT_TRACE("HF CLIP Ind (%d, %s, %s)\n", p_data->clip.type, p_data->clip.caller_num, p_data->clip.caller_name);
 }
 
 /*
@@ -2941,7 +2941,7 @@ void bt_hs_spk_handsfree_sco_voice_path_update(wiced_bool_t uart)
 {
     if (uart)
     {
-#if defined(CYW43012C0) || defined(CYW55572A0) || defined(CYW20721B2)
+#if defined(CYW43012C0) || defined(CYW20721B2)
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_APP_CB;
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = &bt_hs_spk_handsfree_sco_data_app_callback;
 #elif defined(CYW55572A1)

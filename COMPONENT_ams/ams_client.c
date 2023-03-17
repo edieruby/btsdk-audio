@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -33,12 +33,12 @@
 
 /** @file
  *
- * BLE Client for Apple Media Service (AMS).  See
+ * Bluetooth Low Energy (LE) Client for Apple Media Service (AMS).  See
  * https://developer.apple.com/library/ios/documentation/CoreBluetooth/Reference/AppleMediaService_Reference/Introduction/Introduction.html
  *
  * During initialization the app performs GATT discovery and registers
  * to receive various notifications from the player on the iOS device.
- * Received notifications are translated to BT AVRC events and passed
+ * Received notifications are translated to Bluetooth AVRC events and passed
  * to the MCU over the UART/SPI transport.  MCU can send AVRC commands
  * which are translated into AMS commands and sent to iOS device.
  *

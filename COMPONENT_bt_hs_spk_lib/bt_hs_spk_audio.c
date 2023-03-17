@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -178,7 +178,7 @@ static void bt_hs_spk_audio_avrc_passthrough_cmd_handler(uint8_t handle, uint8_t
 /*
  * Check if the target link is allowed to enter sniff mode.
  *
- * @param[in]   bd_addr: peer device's BT address
+ * @param[in]   bd_addr: peer device's Bluetooth address
  */
 wiced_bool_t bt_hs_spk_audio_bt_sniff_mode_allowance_check(wiced_bt_device_address_t bd_addr)
 {
@@ -880,7 +880,7 @@ static void bt_hs_spk_audio_a2dp_sink_cb_start_ind(bt_hs_spk_audio_context_t *p_
 
     bt_hs_spk_audio_app_service_set();
 
-    /* check for BLE connection parameter */
+    /* check for LE connection parameter */
     bt_hs_spk_control_ble_conn_param_check();
 
 #ifdef AUDIO_INSERT_ENABLED
@@ -956,7 +956,7 @@ static void bt_hs_spk_audio_a2dp_sink_cb_start_cfm(bt_hs_spk_audio_context_t *p_
 
     bt_hs_spk_audio_app_service_set();
 
-    /* check for BLE connection parameter */
+    /* check for LE connection parameter */
     bt_hs_spk_control_ble_conn_param_check();
 
 #ifdef AUDIO_INSERT_ENABLED
@@ -3170,7 +3170,7 @@ void bt_hs_spk_audio_audio_manager_stream_start(audio_config_t *p_audio_config)
  *
  * Check if the audio (either A2DP or AVRC) is connected.
  *
- * @param bdaddr - specific source/TG's BT address
+ * @param bdaddr - specific source/TG's Bluetooth address
  *                 If this is set to NULL, the return value would be TRUE if any source/TG is
  *                 connected.
  *
@@ -3291,7 +3291,7 @@ wiced_bool_t bt_hs_spk_audio_a2dp_info_get(bt_hs_spk_audio_info_t *p_info)
  *
  * Check if the device is doing Audio Streaming.
  *
- * @param bdaddr - target device's BT address
+ * @param bdaddr - target device's Bluetooth address
  *                 If this is set to NULL, the return value will be set to TRUE if any
  *                 audio streaming is ongoing
  *
@@ -3408,7 +3408,7 @@ wiced_bool_t bt_hs_spk_audio_is_a2dp_streaming_interrupted(wiced_bt_device_addre
  *
  * Disconnect target peer device.
  *
- * @param bdaddr - target device's BT address
+ * @param bdaddr - target device's Bluetooth address
  *                 If this is set to NULL, all the connected devices will be disconnected
  */
 void bt_hs_spk_audio_disconnect(wiced_bt_device_address_t bdaddr)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -33,7 +33,7 @@
 
 /** @file
 *
-* Header file for BLE Client for Apple Notification Center Service (ANCS)
+* Header file for Bluetoth Low Energy (LE) Client for Apple Notification Center Service (ANCS)
 *
 */
 #ifndef __AMS_CLIENT_H_

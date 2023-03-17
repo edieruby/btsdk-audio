@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -227,7 +227,7 @@ void wiced_bt_ancs_client_discovery_result(uint8_t index, wiced_bt_gatt_discover
 void wiced_bt_ancs_client_discovery_complete(uint8_t index, wiced_bt_gatt_discovery_complete_t *p_data);
 
 /**
- * The application should call this function when BLE connection with a peer
+ * The application should call this function when LE connection with a peer
  * device has been established.
  *
  * @param           p_conn_status  : pointer to a wiced_bt_gatt_connection_status_t which includes the address and connection ID.
@@ -236,7 +236,7 @@ void wiced_bt_ancs_client_discovery_complete(uint8_t index, wiced_bt_gatt_discov
 void wiced_bt_ancs_client_connection_up(wiced_bt_gatt_connection_status_t *p_conn_status);
 
 /**
- * The application should call this function when BLE connection with a peer
+ * The application should call this function when LE connection with a peer
  * device has been disconnected.
  *
  * @index           connection index
