@@ -48,8 +48,8 @@
 #include "wiced_platform.h"
 #include "wiced_transport.h"
 #include "wiced_bt_a2dp_sink.h"
-#include "platform_led.h"
 #ifndef PLATFORM_LED_DISABLED
+#include "platform_led.h"
 #include "wiced_led_manager.h"
 #endif // !PLATFORM_LED_DISABLED
 #include "wiced_audio_manager.h"
@@ -713,7 +713,6 @@ static void bt_hs_spk_control_vse_handler(uint8_t len, uint8_t *p)
 wiced_result_t bt_hs_spk_post_stack_init(bt_hs_spk_control_config_t *p_config)
 {
     wiced_result_t result = WICED_BT_ERROR;
-    wiced_bool_t ret = WICED_FALSE;
     int32_t stream_id;
 
     WICED_BT_TRACE("BT_HS_SPK_CONTROL_BR_EDR_MAX_CONNECTIONS: %d\n", BT_HS_SPK_CONTROL_BR_EDR_MAX_CONNECTIONS);
@@ -1063,14 +1062,16 @@ void bt_hs_spk_control_reconnect(void)
 static void bt_hs_spk_control_reconnect_power_failure(void)
 {
     wiced_bool_t result = WICED_FALSE;
+#if !defined(CYW55572) && !defined(CYW55500)
     uint16_t hci_handle;
+#endif // !defined(CYW55572) && !defined(CYW55500)
     wiced_result_t status;
     uint32_t timeout;
 
     switch (bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].state)
     {
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_IDLE:
-#ifndef CYW55572
+#if !defined(CYW55572) && !defined(CYW55500)
         result = wiced_bt_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
 #else
         // For CYW55572, use wiced_bt_hfp_hf_connect trigger ACL connection and starts connection encryption
@@ -1087,12 +1088,12 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
                 result = WICED_TRUE;
             }
         }
-#endif
+#endif // !defined(CYW55572) && !defined(CYW55500)
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_ACL:
         WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_ACL\n", __FUNCTION__);
-#ifndef CYW55572
+#if !defined(CYW55572) && !defined(CYW55500)
         hci_handle = wiced_bt_conn_handle_get(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr, BT_TRANSPORT_BR_EDR);
 
         if (hci_handle != 0xFFFF)
@@ -1101,16 +1102,16 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
         }
 #else
         result = WICED_TRUE;
-#endif
+#endif // !defined(CYW55572) && !defined(CYW55500)
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_AUTH:
         WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_AUTH\n", __FUNCTION__);
-#ifndef CYW55572
+#if !defined(CYW55572) && !defined(CYW55500)
         result = wiced_bt_start_encryption(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
 #else
         result = WICED_TRUE;
-#endif
+#endif // !defined(CYW55572) && !defined(CYW55500)
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_ENC:
@@ -1123,7 +1124,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
             bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting = WICED_TRUE;
             result = WICED_TRUE;
 
-#ifndef CYW55572
+#if !defined(CYW55572) && !defined(CYW55500)
             /* Reconnect HFP. */
             status = wiced_bt_hfp_hf_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
             if (status != WICED_SUCCESS)
@@ -1131,7 +1132,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
                 WICED_BT_TRACE("wiced_bt_hfp_hf_connect fail (%d)\n", status);
                 result = WICED_FALSE;
             }
-#endif
+#endif // !defined(CYW55572) && !defined(CYW55500)
 
             /* Reconnect A2DP. */
             // NOTE: For CYW55572, only connecting a2dp sink profile in this step
@@ -1142,7 +1143,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
                 result = WICED_FALSE;
             }
 
-#ifndef CYW55572
+#if !defined(CYW55572) && !defined(CYW55500)
             /* Reconnect AVRCP. */
             status = wiced_bt_avrc_ct_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
             if ((status != WICED_BT_SUCCESS) &&
@@ -1153,7 +1154,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
             }
 
             bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting = WICED_FALSE;
-#endif
+#endif // !defined(CYW55572) && !defined(CYW55500)
         }
         else
         {
@@ -1163,7 +1164,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
         break;
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_PROFILE:
-#ifdef CYW55572
+#if defined(CYW55572) || defined(CYW55500)
         // NOTE: For CYW55572, connecting avrcp profile in this step
         result = WICED_TRUE;
         /* Reconnect AVRCP. */
@@ -1175,7 +1176,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
             result = WICED_FALSE;
         }
         bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].is_profile_connecting = WICED_FALSE;
-#endif
+#endif // defined(CYW55572) || defined(CYW55500)
         break;
 
     default:

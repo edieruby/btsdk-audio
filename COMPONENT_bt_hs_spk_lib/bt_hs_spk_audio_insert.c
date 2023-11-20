@@ -35,6 +35,8 @@
  * This file implement functions to Insert Audio (thanks to the Wiced Audio Insert library).
  * It allows the application to Play a (locally stored) sound.
  */
+#ifdef AUDIO_INSERT_ENABLED
+
 #include "bt_hs_spk_control.h"
 #include "wiced.h"
 #include "wiced_bt_audio_insert.h"
@@ -389,3 +391,5 @@ static void bt_hs_spk_audio_insert_source_data_exhausted_handler(wiced_bt_audio_
         (*bt_hs_spk_audio_insert_cb.p_config->p_source_data_exhausted_callback)();
     }
 }
+
+#endif // AUDIO_INSERT_ENABLED

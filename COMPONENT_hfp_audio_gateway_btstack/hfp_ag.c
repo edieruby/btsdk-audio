@@ -208,8 +208,10 @@ void hfp_ag_audio_open( uint16_t handle )
     /* If already open, just return success */
     if ( p_scb->b_sco_opened )
     {
+#if (BTM_WBS_INCLUDED == TRUE )
         ap_event.audio_open.wbs_supported = p_scb->peer_supports_msbc;
         ap_event.audio_open.wbs_used = p_scb->msbc_selected;
+#endif
         if(hfp_ag_hci_send_ag_event)
             hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_AUDIO_OPEN, handle, (hfp_ag_event_t*)&ap_event );
         return;

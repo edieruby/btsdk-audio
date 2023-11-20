@@ -57,6 +57,26 @@
 #include "bt_hs_spk_audio_insert.h"
 #endif
 
+#if defined(CYW55500)
+// todo: Temporary workaround.
+// Remove the following declarations once they are declared in the CSP
+extern wiced_bt_dev_status_t wiced_bt_utils_sco_create_as_acceptor_with_specific_ag(wiced_bt_device_address_t ag_addr, uint16_t *p_sco_index);
+#define wiced_bt_sco_create_as_acceptor_with_specific_ag(ag_addr, p_sco_index) wiced_bt_utils_sco_create_as_acceptor_with_specific_ag(ag_addr, p_sco_index)
+
+// todo: Temporary defined HERE
+// Need to move to wiced_bt_sco.h file when the repo assert is ready
+#if defined(SUPPORT_MXTDM)
+#include "wiced_hal_pcm.h"
+
+#define WICED_HAL_MXTDM0_I2S_MODE        (2)
+#define WICED_HAL_MXTDM0_PCM_MODE        (3)
+#define WICED_HAL_MXTDM1_I2S_MODE        (4)
+#define WICED_HAL_MXTDM1_PCM_MODE        (5)
+
+#endif // defined(SUPPORT_MXTDM)
+
+#endif // defined(CYW55500)
+
 #define BT_HS_SPK_HANDSFREE_SCO_CONNECTING_STATE_PROTECTION_TIMEOUT 500  // ms
 
 typedef void (*bt_hs_spk_handsfree_btm_event_sco_handler_t)(handsfree_app_state_t *p_ctx, wiced_bt_management_evt_data_t *p_data);
@@ -202,7 +222,7 @@ static void bt_hs_spk_handsfree_sco_data_app_callback(uint32_t ltch_len, uint8_t
     {
         if ((*bt_hs_spk_handsfree_cb.p_mic_data_add_cb)(p_mic_data, ltch_len))
         {
-#if defined(CYW55572A1)
+#if defined(CYW55572A1) || defined(CYW55500)
             ret_value = wiced_audio_sco_add_mic_stream(bt_hs_spk_handsfree_cb.p_active_context->sco_index,
                                                        p_mic_data,
                                                        (uint16_t) ltch_len);
@@ -238,7 +258,7 @@ static void bt_hs_spk_handsfree_cb_init(void)
 #if defined(CYW43012C0) || defined(CYW20721B2)
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_APP_CB;
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = &bt_hs_spk_handsfree_sco_data_app_callback;
-#elif defined(CYW55572A1)
+#elif defined(CYW55572A1) || defined(CYW55500)
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_HCI;
         wiced_audio_sco_set_data_route(WICED_SCO_ROUTE_APP, &bt_hs_spk_handsfree_sco_data_app_callback);
 #else
@@ -249,6 +269,25 @@ static void bt_hs_spk_handsfree_cb_init(void)
     {
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_PCM;
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = NULL;
+#if defined(SUPPORT_MXTDM)
+        // set the MXTDM1 I2S Mode
+		wiced_hal_pcm_config_t wiced_hal_pcm_params =
+		{
+			WICED_HAL_MXTDM1_I2S_MODE,
+			WICED_HAL_PCM_MASTER,
+			// Below settings are not applicable for I2S MODE
+			{
+				WICED_HAL_PCM_MSB_FIRST,
+				0,
+				WICED_HAL_PCM_FILL_0S,
+				3,
+				WICED_HAL_PCM_DISABLE_RIGHT_JUSTIFY,
+				WICED_HAL_PCM_FRAME_TYPE_SHORT
+			}
+		};
+
+		wiced_hal_set_pcm_config(&wiced_hal_pcm_params);
+#endif
     }
 
     // stream id used for Audio Manager
@@ -1016,8 +1055,6 @@ static void bt_hs_spk_handsfree_event_handler_service_type(handsfree_app_state_t
  */
 static void bt_hs_spk_handsfree_event_handler_codec_set(handsfree_app_state_t *p_ctx, wiced_bt_hfp_hf_event_data_t* p_data)
 {
-    wiced_bool_t update_audio_manager = WICED_FALSE;
-
     if (bt_hs_spk_handsfree_cb.p_active_context != NULL)
     {
         WICED_BT_TRACE("HF Codec Set (%d, %d) (%d)\n",
@@ -1383,7 +1420,9 @@ static void bt_hs_spk_handsfree_event_handler_clip_ind(handsfree_app_state_t *p_
  */
 static void bt_hs_spk_handsfree_event_handler_ag_feature_support(handsfree_app_state_t *p_ctx, wiced_bt_hfp_hf_event_data_t* p_data)
 {
+#if (WICED_BT_HFP_HF_WBS_INCLUDED == TRUE)
     wiced_bt_hfp_hf_scb_t    *p_scb = NULL;
+#endif // (WICED_BT_HFP_HF_WBS_INCLUDED == TRUE)
 
     WICED_BT_TRACE("HF AG Feature (0x%08X)\n", p_data->ag_feature_flags);
 
@@ -1564,8 +1603,6 @@ static wiced_result_t bt_audio_hfp_reject(void)
 
 static wiced_result_t bt_audio_hfp_accept_hangup_call_active_yes(handsfree_app_state_t *p_ctx)
 {
-    wiced_bt_dev_status_t status;
-
     switch (p_ctx->call_setup)
     {
     case WICED_BT_HFP_HF_CALLSETUP_STATE_IDLE:     /* No call set up in progress */
@@ -2009,7 +2046,6 @@ wiced_bool_t bt_hs_spk_handsfree_call_session_check(void)
  */
 wiced_bool_t bt_hs_spk_handsfree_bt_sniff_mode_allowance_check(wiced_bt_device_address_t bd_addr)
 {
-    uint16_t i;
     handsfree_app_state_t *p_ctx = NULL;
 
     p_ctx = get_context_ptr_from_address(bd_addr, WICED_FALSE);
@@ -2944,7 +2980,7 @@ void bt_hs_spk_handsfree_sco_voice_path_update(wiced_bool_t uart)
 #if defined(CYW43012C0) || defined(CYW20721B2)
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_APP_CB;
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = &bt_hs_spk_handsfree_sco_data_app_callback;
-#elif defined(CYW55572A1)
+#elif defined(CYW55572A1) || defined(CYW55500)
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_HCI;
         wiced_audio_sco_set_data_route(WICED_SCO_ROUTE_APP, &bt_hs_spk_handsfree_sco_data_app_callback);
 #else

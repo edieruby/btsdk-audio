@@ -59,8 +59,12 @@
 #include "wiced_audio_manager.h"
 #include "wiced_bt_dev.h"
 #include "wiced_memory.h"
+#if !defined(CYW55500)
+// temporary workaround
+// todo: add the header file to the pdl-cat5 library
 #include "wiced_bt_avrc_tg.h"
 #include <wiced_utilities.h>
+#endif // !defined(CYW55500)
 #include "wiced_transport.h"
 #ifdef CYW20721B2
 #include "wiced_audio_sink.h"
@@ -79,6 +83,18 @@
 #ifndef NULL
 #define NULL    0
 #endif
+
+
+// temporary workaround
+// TODO: remove the declarations once they are defined in the pdl-cat5 library
+#ifndef util_countof
+/** Determine the number of elements in an array. */
+#define util_countof(x) (sizeof(x) / sizeof(x[0]))
+#endif // end of util_countof
+
+#ifndef MAX_AVRCP_VOLUME_LEVEL
+#define MAX_AVRCP_VOLUME_LEVEL  0x7f
+#endif // end of MAX_AVRCP_VOLUME_LEVEL
 
 //=================================================================================================
 //  Structure
@@ -282,9 +298,6 @@ void bt_hs_spk_audio_a2dp_status_register(bt_hs_spk_audio_a2dp_state_callback_t 
  */
 void bt_hs_spk_audio_streaming_stop(void)
 {
-    uint16_t i = 0;
-    wiced_bool_t avrc_connected = WICED_FALSE;
-
     if (bt_hs_spk_audio_cb.p_active_context == NULL)
     {
         return;
@@ -973,8 +986,6 @@ static void bt_hs_spk_audio_a2dp_sink_cb_start_cfm(bt_hs_spk_audio_context_t *p_
  */
 static void bt_hs_spk_audio_a2dp_sink_cb_suspend(bt_hs_spk_audio_context_t *p_ctx, wiced_bt_a2dp_sink_event_data_t *p_data)
 {
-    uint16_t i;
-
     WICED_BT_TRACE("A2DP Sink Suspend (%B, %d, 0x%08X 0x%08X)\n",
                    p_data->suspend.bd_addr,
                    p_data->suspend.result,
@@ -1885,8 +1896,10 @@ static void bt_hs_spk_audio_context_switch_out(void)
 
         if (bt_hs_spk_audio_cb.stream_id != WICED_AUDIO_MANAGER_STREAM_ID_INVALID)
         {
+#if AUDIO_INSERT_ENABLED
             /* Not to close the audio manager if the audio insertion is ongoing. */
             if (bt_hs_spk_audio_insert_state_check(WICED_FALSE) == WICED_FALSE)
+#endif
             {
                 if (WICED_SUCCESS != wiced_am_stream_close(bt_hs_spk_audio_cb.stream_id))
                 {
@@ -1996,7 +2009,6 @@ static bt_hs_spk_audio_context_t *bt_hs_spk_audio_context_get_address(wiced_bt_d
 static void bt_hs_spk_audio_playstate_update(wiced_bt_device_address_t bd_addr, wiced_bool_t played)
 {
     bt_hs_spk_audio_context_t *p_ctx = bt_hs_spk_audio_context_get_address(bd_addr, WICED_FALSE);
-    uint16_t i = 0;
 
     WICED_BT_TRACE("bt_hs_spk_audio_playstate_update (%B): %d (curState: %d), 0x%08X (%d) 0x%08X (%d)\n",
                    bd_addr,
@@ -2734,8 +2746,10 @@ static void bt_hs_spk_audio_avrc_response_cb_get_element_attribute_rsp(bt_hs_spk
 static void bt_hs_spk_audio_avrc_response_cb_get_element_attribute_rsp(bt_hs_spk_audio_context_t *p_ctx, wiced_bt_avrc_response_t *avrc_rsp)
 #endif
 {
+#if !(BTSTACK_VER >= 0x03000001)
     int i;
     int rsp_size;
+#endif // !(BTSTACK_VER >= 0x03000001)
     char *rsp;
 
 #if BTSTACK_VER >= 0x03000001
@@ -3342,7 +3356,7 @@ wiced_result_t bt_hs_spk_audio_streaming_check(wiced_bt_device_address_t bdaddr)
 wiced_bool_t bt_hs_spk_audio_is_a2dp_streaming_started(void)
 {
     int i;
-    for (i = 0; i < _countof(bt_hs_spk_audio_cb.context); i++)
+    for (i = 0; i < util_countof(bt_hs_spk_audio_cb.context); i++)
     {
         if (bt_hs_spk_audio_cb.context[i].a2dp.is_streaming_started)
         {
@@ -3528,11 +3542,33 @@ void bt_hs_spk_audio_vse_jitter_buffer_event_handler(uint8_t *p)
     if ((uipc_event == BT_EVT_BTU_IPC_BTM_EVT) &&
         (opcode == AV_SINK_PLAY_STATUS_IND))
     {
-        extern uint16_t last_seq_num;
-#ifdef CYW55572
+#if defined(CYW55572) || defined(CYW55500)
         extern uint16_t wiced_audio_sink_last_seq_num;
-        last_seq_num = wiced_audio_sink_last_seq_num;
-#endif
+
+        WICED_BT_TRACE("jitter_buffer_event_handler (status : 0x%02X)\n", status);
+        if (status == JITTER_NORMAL_STATE)
+        {
+            if (bt_hs_spk_audio_streaming_check(NULL) == WICED_ALREADY_CONNECTED)
+            {
+                /* The JitterBuffer is ready. Start A2DP Codec Stream */
+                bt_hs_spk_audio_audio_manager_stream_start(&bt_hs_spk_audio_cb.p_active_context->audio_config);
+            }
+        }
+        else if (status == JITTER_UNDERRUN_STATE)
+        {
+            WICED_BT_TRACE("UNDERRUN(0x%04X)\n", wiced_audio_sink_last_seq_num);
+        }
+        else if (status == JITTER_OVERRUN_STATE)
+        {
+            WICED_BT_TRACE("OVERRUN(0x%04X)\n", wiced_audio_sink_last_seq_num);
+        }
+        else
+        {
+            /* ignore states */
+            WICED_BT_TRACE("jitter_buffer_event_handler: ignore states\n");
+        }
+#else
+        extern uint16_t last_seq_num;
 
         WICED_BT_TRACE("jitter_buffer_event_handler (status : 0x%02X)\n", status);
         if (status == JITTER_NORMAL_STATE)
@@ -3556,6 +3592,7 @@ void bt_hs_spk_audio_vse_jitter_buffer_event_handler(uint8_t *p)
             /* ignore states */
             WICED_BT_TRACE("jitter_buffer_event_handler: ignore states\n");
         }
+#endif
     }
 }
 

@@ -1570,10 +1570,11 @@ wiced_bt_avrc_sts_t wiced_avrc_build_metadata_rsp (void *p_rsp, wiced_bt_avrc_xm
         rcc_device_t* rcc_dev,
         wiced_bt_avrc_metadata_rsp_t * p_rsp)
     {
+#ifdef BTAVRCP_TRACE_DEBUG
         wiced_bt_avrc_metadata_get_caps_rsp_t * p_gcrsp = (wiced_bt_avrc_metadata_get_caps_rsp_t *)&p_rsp->u.get_caps;
 
         WICED_BTAVRCP_TRACE("[%s]: Enter... count [%d]\n", __FUNCTION__, p_gcrsp->count);
-
+#endif
          /* Register for notifications for supported events */
          wiced_bt_avrc_ct_register_for_notifications(rcc_dev, p_rsp);
 
@@ -1759,7 +1760,6 @@ wiced_bt_avrc_sts_t wiced_avrc_build_metadata_rsp (void *p_rsp, wiced_bt_avrc_xm
         wiced_bt_avrc_xmit_buf_t* p_pkt = NULL;
         uint8_t       ctype = 0;
         wiced_bt_avrc_metadata_rsp_t  rc_rsp;
-        uint8_t pdu_id = 0;
         wiced_bt_avrc_hdr_t *hdr = NULL;
         wiced_bt_avrc_cmd_t *p_cmd = NULL;
         wiced_bt_avrc_rsp_t *p_res = NULL;
@@ -1855,7 +1855,12 @@ wiced_bt_avrc_sts_t wiced_avrc_build_metadata_rsp (void *p_rsp, wiced_bt_avrc_xm
                 {
                     /* reject it */
                     hdr->ctype = AVRC_RSP_NOT_IMPL;
+
+#if defined(CYW55500)
+                    // TODO: H1 processing
+#else
                     wiced_bt_avrc_send_vendor_rsp(handle, label, &p_msg->type.response);
+#endif
                 }
             }
         }
@@ -2255,7 +2260,9 @@ wiced_bt_avrc_sts_t wiced_avrc_build_metadata_rsp (void *p_rsp, wiced_bt_avrc_xm
 
 #ifndef AVCT_MAP_FRAGMENTED_RESPONSE_ALLOCATION
 #define SCRATCH_BUFFER_SIZE     2048
+#if 0
     static uint8_t static_scratch_buffer[SCRATCH_BUFFER_SIZE];
+#endif
 #endif
     /*******************************************************************************
     **
@@ -2306,8 +2313,8 @@ wiced_bt_avrc_sts_t wiced_avrc_build_metadata_rsp (void *p_rsp, wiced_bt_avrc_xm
 
         if (result == WICED_SUCCESS)
         {
-            uint8_t* scratch_buffer = NULL;
 #if 0
+            uint8_t* scratch_buffer = NULL;
             /* Calculate size of scratch buffer and add some buffering if there is any room */
             uint32_t scratch_sz = (uint32_t)p_data->vendor.vendor_len +
                 DEFAULT_METADATA_SCRATCH_SZ;

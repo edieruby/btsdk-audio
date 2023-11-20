@@ -50,7 +50,7 @@
 
 #define BTA_AG_CMD_MAX_VAL      32767       /* Maximum value is signed 16-bit value */
 #define BTA_AG_NUM_INDICATORS    7
-#define BTA_AG_CIND_INFO        "(\"call\",(0,1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"service\",(0,1),(\"battchg\",(0-5)),(\"signal\",(0-5)),(\"roam\",(0-1))"
+#define BTA_AG_CIND_INFO        "(\"call\",(0,1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"service\",(0,1)),(\"battchg\",(0-5)),(\"signal\",(0-5)),(\"roam\",(0-1))"
 static char  BTA_AG_CIND_VALUES[20] = { '0', ',' , '0' , ',' , '0' , ',' , '1' ,',','5',',' ,'5',',' ,'0'};
 
 /* enumeration of HFP AT commands matches HFP command interpreter table */

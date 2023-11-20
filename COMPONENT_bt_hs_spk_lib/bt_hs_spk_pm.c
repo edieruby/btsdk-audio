@@ -38,9 +38,6 @@
  *
  */
 #include <stdint.h>
-#ifndef BTSTACK_VER
-#include "data_types.h"
-#endif
 #include "bt_hs_spk_pm.h"
 #include "wiced_sleep.h"
 #include "wiced_hal_gpio.h"
@@ -48,6 +45,10 @@
 #include "wiced.h"
 #include "wiced_bt_trace.h"
 #include "platform_button.h"
+
+#ifndef BTSTACK_VER
+#include "data_types.h"
+#endif
 
 /*we allow the sleep by default to allow for power save, enable/disable of the power save will be
  * controlled from the use case path*/
@@ -57,7 +58,7 @@ uint32_t bt_hs_spk_sleep_handler(wiced_sleep_poll_type_t type );
 /*Initialize BT sleep modes for power management */
 wiced_result_t bt_hs_spk_pm_init(bt_hs_spk_control_config_sleep_t *p_config)
 {
-#if !defined(CYW55572A1)
+#if !defined(CYW55572A1) && !defined(CYW55500)
     wiced_sleep_config_t sleep_config;
 
     WICED_BT_TRACE("%s\n",__func__);

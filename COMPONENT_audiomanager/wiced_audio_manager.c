@@ -70,8 +70,6 @@ typedef struct
 
 wiced_audio_manager_info_t wiced_am_info = {0};
 
-static int32_t wiced_am_stream_set_default_param(uint32_t stream_id, uint32_t stream_type);
-
 /**
  * The application should call this function to Initialize Audio Manager
  *
@@ -106,7 +104,6 @@ int32_t wiced_am_stream_open(uint32_t stream_type)
 {
     WICED_BT_TRACE("Audio Manager Stream Open\n");
     int32_t i;
-    int32_t playback_opened;
 
     /* Find available space or check if the stream is already opened. */
     for (i= 0; i< MAX_NO_OF_STREAMS; ++i)

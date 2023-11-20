@@ -379,6 +379,19 @@ wiced_result_t  wiced_bt_a2dp_sink_mute_audio( wiced_bool_t enable, uint16_t ram
     return wiced_audio_sink_mute( enable, ramp_ms );
 }
 
+#if defined(CYW55500)
+// todo, remove this once the 55500A0 patch is available
+wiced_result_t wiced_bt_a2dp_sink_route_config_lrac_switch_get(void *p_opaque, uint16_t *p_sync_data_len)
+{
+    return WICED_BT_ERROR;
+}
+
+wiced_result_t wiced_bt_a2dp_sink_route_config_lrac_switch_set(void *p_opaque, uint16_t sync_data_len)
+{
+    return WICED_BT_ERROR;
+}
+#endif // defined(CYW55500)
+
 /*
  * wiced_bt_a2dp_sink_lrac_switch_get
  */

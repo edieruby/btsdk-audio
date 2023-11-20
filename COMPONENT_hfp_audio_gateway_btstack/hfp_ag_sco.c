@@ -163,8 +163,10 @@ void hfp_ag_sco_management_callback( wiced_bt_management_evt_t event, wiced_bt_m
                 p_scb->b_sco_opened               = WICED_TRUE;
 
                 /* call app callback */
+#if (BTM_WBS_INCLUDED == TRUE )
                 ap_event.audio_open.wbs_supported = p_scb->peer_supports_msbc;
                 ap_event.audio_open.wbs_used      = p_scb->msbc_selected;
+#endif
                 if(hfp_ag_hci_send_ag_event)
                     hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_AUDIO_OPEN, p_scb->app_handle, &ap_event );
             }

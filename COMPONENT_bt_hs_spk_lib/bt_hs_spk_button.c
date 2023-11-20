@@ -46,7 +46,11 @@
 #include "wiced_timer.h"
 #include "wiced_transport.h"
 #include "bt_hs_spk_pm.h"
+#if !defined(CYW55500)
 #include "clock_timer.h"
+#else // defined(CYW55500)
+#include "btss_system.h"
+#endif // !defined(CYW55500)
 
 /******************************************************
  *                      Macros
@@ -113,6 +117,12 @@ static wiced_result_t service_transport_set_detect_on(void);
 static void app_service_action_arbitrator( app_service_action_t action );
 static void app_button_event_handler( const button_manager_button_t* button, button_manager_event_t event, button_manager_button_state_t state );
 static void bt_service_timer_cb(TIMER_PARAM_TYPE arg);
+
+#if defined(CYW55500)
+// temporary workaround
+// todo: remove the following declarations once those are added in the pdl-cat5 library
+#define wiced_timer_target_time_get(p_target_timer) (((p_target_timer))->tt) // in wiced_timer.h
+#endif // defined(CYW55500)
 /******************************************************
  *               Variable Definitions
  ******************************************************/
@@ -610,7 +620,11 @@ void bt_hs_spk_app_service_action_run(app_service_action_t action)
 
 uint16_t bt_hs_spk_button_get_remain_bt_service_timer(void)
 {
+#if !defined(CYW55500)
     uint64_t r = clock_SystemTimeMicroseconds64();
+#else // defined(CYW55500)
+    uint64_t r = btss_system_getSystemTimeMicroseconds();
+#endif // !defined(CYW55500)
 
     if (r < wiced_timer_target_time_get(&bt_service_timer))
         r = wiced_timer_target_time_get(&bt_service_timer) - r;

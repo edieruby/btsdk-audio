@@ -98,9 +98,9 @@ void wiced_bt_hfp_hf_rfcomm_mgmt_cback(wiced_bt_rfcomm_result_t code, uint16_t h
             || (code == WICED_BT_RFCOMM_START_FAILED)
             || (code == WICED_BT_RFCOMM_PAR_NEG_FAILED)
             || (code == WICED_BT_RFCOMM_RFCOMM_NEG_FAILED)
-#if !defined(CYW55572A1)
+#if (!defined(CYW55572A1) && !defined(CYW55500))
             || (code == WICED_BT_RFCOMM_SEC_FAILED)
-#endif /* !defined(CYW55572A1) */
+#endif /* !defined(CYW55572A1) && !defined(CYW55500) */
              || (code == WICED_BT_RFCOMM_CLOSED) )
     {
         /* Disconnected */
