@@ -177,8 +177,9 @@ void spi_interrupt_callback(void *callback_arg, cyhal_spi_event_t event)
 
     if(event & CYHAL_SPI_IRQ_ERROR)
     	spi_hal_error = event;
+
 #if defined(CYW55500A1)
-    cyhal_gpio_write(LHL_GPIO_6, 1);
+    cyhal_gpio_write(BT_GPIO_16, 1);
 #endif
 }
 
@@ -202,8 +203,8 @@ void platform_bham_codec_marley_ctrl_bus_init(void)
         btss_pad_configure(PAD_BT_GPIO_17, FUNC_SCB1_SPI_CLK,     0x3a);
         btss_pad_configure(PAD_LHL_GPIO_8,  FUNC_SCB1_SPI_MOSI,    0x3a);
         btss_pad_configure(PAD_LHL_GPIO_9,  FUNC_SCB1_SPI_MISO,    0x3b);
-        btss_pad_configure(PAD_LHL_GPIO_6, FUNC_B_GPIO_6, 0x3a);
-		cyhal_gpio_init(LHL_GPIO_6, CYHAL_GPIO_DIR_OUTPUT,
+        // btss_pad_configure(PAD_BT_GPIO_16, FUNC_SCB1_SPI_SELECT0, 0x3a);
+        cyhal_gpio_init(PAD_BT_GPIO_16, CYHAL_GPIO_DIR_OUTPUT,
 						CYHAL_GPIO_DRIVE_STRONG, 1);
 #else
 		rslt = cyhal_spi_init(&mSPI, LHL_GPIO_8, LHL_GPIO_9, LHL_GPIO_6, LHL_GPIO_7, NULL,
@@ -399,11 +400,39 @@ void wiced_bt_codec_cs47l35_set_sink(cs47l35_output_t output)
     codec_cs47l35_output = output;
 }
 
+#ifndef SUPPORT_LE_AUDIO_STEREO
 void wiced_bt_codec_cs47l35_set_sink_mono2stereo(void)
 {
   codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 1);
 }
+#else // else of SUPPORT_LE_AUDIO_STEREO
 
+int codec_count_set_bits(uint32_t n) {
+    int count = 0;
+    while (n) {
+        n &= (n - 1);
+        count++;
+    }
+    return count;
+}
+
+void wiced_bt_codec_cs47l35_set_sink_mono2stereo(uint32_t audio_allocation)
+{
+    uint32_t channel_num = codec_count_set_bits(audio_allocation);
+
+    // only single channel is enabled, set the L/R as the same output
+    if (codec_count_set_bits(audio_allocation) == 1)
+    {
+        codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 1);
+    }
+    else if (codec_count_set_bits(audio_allocation) == 2)
+    {
+        // set as stereo audio when two channels are enabled.
+        // Currently only support stereo channels
+        codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 0);
+    }
+}
+#endif // SUPPORT_LE_AUDIO_STEREO
 
 /*******************************************************************************
 * Static Function Definitions
@@ -423,9 +452,8 @@ static void platform_bham_codec_marley_write_cmd(uint32_t address, uint16_t tx_l
     /* Send address and data */
 #ifdef CY_USING_HAL
 #if defined(CYW55500A1)
-    cyhal_gpio_write(LHL_GPIO_6, 0);
+    cyhal_gpio_write(BT_GPIO_16, 0);
 #endif
-
 #ifndef CODEC_SPI_DIRECT_WRITE_MODE
     cyhal_spi_transfer(&mSPI, p_spi_tx_buffer, 6 + tx_length, NULL, 0, 0xFF);
 #else
@@ -434,8 +462,8 @@ static void platform_bham_codec_marley_write_cmd(uint32_t address, uint16_t tx_l
         cyhal_spi_send(&mSPI, p_spi_tx_buffer[i]);
     }
 #if defined(CYW55500A1)
-    cyhal_gpio_write(LHL_GPIO_6, 1);
-#endif // CYW55500A1
+    cyhal_gpio_write(BT_GPIO_16, 1);
+#endif
 #endif // end of CODEC_SPI_DIRECT_WRITE_MODE
 
 #else // else of CY_USING_HAL
@@ -465,11 +493,11 @@ static void platform_bham_codec_marley_read_cmd(uint32_t address, uint16_t rx_le
     p_spi_tx_buffer[9] = (uint8_t) 0; /* 16-bit padding phase */
 #ifdef CY_USING_HAL
     __attribute__((unused)) cy_rslt_t result;
-
-    cyhal_spi_clear(&mSPI);
 #if defined(CYW55500A1)
-    cyhal_gpio_write(LHL_GPIO_6, 0);
+    cyhal_gpio_write(BT_GPIO_16, 0);
 #endif
+    cyhal_spi_clear(&mSPI);
+
     result = cyhal_spi_transfer(&mSPI, p_spi_tx_buffer, 6 + rx_length, p_spi_rx_buffer, 6 + rx_length, 0xFF);
 
     // TODO: handle the result

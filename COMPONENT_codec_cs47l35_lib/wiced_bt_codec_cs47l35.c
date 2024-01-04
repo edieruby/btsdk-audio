@@ -592,10 +592,39 @@ void wiced_bt_codec_cs47l35_set_sink(cs47l35_output_t output)
     codec_cs47l35_output = output;
 }
 
+#ifndef SUPPORT_LE_AUDIO_STEREO
 void wiced_bt_codec_cs47l35_set_sink_mono2stereo(void)
 {
   codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 1);
 }
+#else // else of SUPPORT_LE_AUDIO_STEREO
+
+int codec_count_set_bits(uint32_t n) {
+    int count = 0;
+    while (n) {
+        n &= (n - 1);
+        count++;
+    }
+    return count;
+}
+
+void wiced_bt_codec_cs47l35_set_sink_mono2stereo(uint32_t audio_allocation)
+{
+    uint32_t channel_num = codec_count_set_bits(audio_allocation);
+
+    if (codec_count_set_bits(audio_allocation) == 1)
+    {
+        // only single channel is enabled, set the L/R as the same output
+        codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 1);
+    }
+    else if (codec_count_set_bits(audio_allocation) == 2)
+    {
+        // set as stereo audio when two channels are enabled.
+        // Currently only support stereo channels
+        codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 0);
+    }
+}
+#endif // SUPPORT_LE_AUDIO_STEREO
 
 void codec_cs47l35_set_sink(cs47l35_output_t output, uint8_t mono_input)
 {

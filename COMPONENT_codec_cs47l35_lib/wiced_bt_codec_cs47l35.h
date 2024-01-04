@@ -123,4 +123,8 @@ void wiced_bt_codec_cs47l35_init(cs47l35_stream_type_t stream_type, uint32_t sam
 void wiced_bt_codec_cs47l35_set_output_volume(uint8_t left_vol, uint8_t right_vol);
 void wiced_bt_codec_cs47l35_set_input_volume(uint8_t left_vol, uint8_t right_vol);
 void wiced_bt_codec_cs47l35_set_sink(cs47l35_output_t output);
+#ifndef SUPPORT_LE_AUDIO_STEREO
 void wiced_bt_codec_cs47l35_set_sink_mono2stereo(void);
+#else // else of SUPPORT_LE_AUDIO_STEREO
+void wiced_bt_codec_cs47l35_set_sink_mono2stereo(uint32_t audio_allocation);
+#endif // SUPPORT_LE_AUDIO_STEREO

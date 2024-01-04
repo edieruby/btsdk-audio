@@ -57,7 +57,11 @@
 * Macros
 ********************************************************************************/
 #ifndef PLATFORM_BUTTON_CUSTOM
+#if defined(CYW55500A1)
+#define PLATFORM_BUTTON_CUSTOM      (LHL_GPIO_6)
+#else
 #define PLATFORM_BUTTON_CUSTOM      (BT_GPIO_16)
+#endif
 #endif // PLATFORM_BUTTON_CUSTOM
 
 #ifndef PLATFORM_BUTTON_VOL_UP
