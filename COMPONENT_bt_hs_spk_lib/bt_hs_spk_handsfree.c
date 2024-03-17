@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -616,6 +616,7 @@ static void bt_hs_spk_handsfree_sco_management_callback_connected(handsfree_app_
 {
     wiced_bool_t allowed = WICED_FALSE;
     wiced_bt_dev_status_t status;
+    (void)status;
 
     WICED_BT_TRACE("bt_hs_spk_handsfree_sco_management_callback_connected (%d, 0x%08X 0x%08X, %d)\n",
                    p_data->sco_connected.sco_index,
@@ -776,6 +777,7 @@ static void bt_hs_spk_handsfree_sco_management_callback_disconnected(handsfree_a
 {
     uint16_t i;
     wiced_bt_dev_status_t status;
+    (void)status;
 
     WICED_BT_TRACE("bt_hs_spk_handsfree_sco_management_callback_disconnected (%d, 0x%08X, 0x%08X)\n",
                    p_data->sco_disconnected.sco_index,
@@ -948,6 +950,7 @@ static void bt_hs_spk_handsfree_event_handler_connection_state(handsfree_app_sta
 {
     wiced_bt_dev_status_t status;
     wiced_bt_device_address_t reconnect_peer_bdaddr;
+    (void)status;
 
     switch (p_data->conn_data.conn_state)
     {

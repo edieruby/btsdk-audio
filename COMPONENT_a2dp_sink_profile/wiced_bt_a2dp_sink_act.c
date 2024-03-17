@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -828,6 +828,7 @@ void wiced_bt_a2dp_sink_connect_req(wiced_bt_a2dp_sink_ccb_t *p_ccb,
     wiced_bt_a2dp_sink_scb_t *p_scb = p_ccb->p_scb;
 #if 1
     uint16_t result;
+    (void)result;
 #endif
 
 #if 1

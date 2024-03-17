@@ -10,7 +10,7 @@
 * Related Document:
 *
 *******************************************************************************
-* Copyright 2021-2023, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2021-2024, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -82,6 +82,7 @@ extern "C" {
 #define AM_PLAYBACK_SR_12K      12000
 #define AM_PLAYBACK_SR_16K      16000
 #define AM_PLAYBACK_SR_22K      22050
+#define AM_PLAYBACK_SR_24K      24000
 #define AM_PLAYBACK_SR_32K      32000
 #define AM_PLAYBACK_SR_44K      44100
 #define AM_PLAYBACK_SR_48K      48000

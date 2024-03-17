@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -888,6 +888,9 @@ static void bt_hs_spk_audio_a2dp_sink_cb_start_ind(bt_hs_spk_audio_context_t *p_
 
             p_ctx->a2dp.interrupted = WICED_FALSE;
             p_ctx->a2dp.is_streaming_started = WICED_TRUE;
+#ifdef CODEC_SPI_DIRECT_ENABLE
+            bt_hs_spk_audio_audio_manager_stream_start(&bt_hs_spk_audio_cb.p_active_context->audio_config);
+#endif
         }
     }
 
@@ -3550,8 +3553,10 @@ void bt_hs_spk_audio_vse_jitter_buffer_event_handler(uint8_t *p)
         {
             if (bt_hs_spk_audio_streaming_check(NULL) == WICED_ALREADY_CONNECTED)
             {
+#ifndef CODEC_SPI_DIRECT_ENABLE
                 /* The JitterBuffer is ready. Start A2DP Codec Stream */
                 bt_hs_spk_audio_audio_manager_stream_start(&bt_hs_spk_audio_cb.p_active_context->audio_config);
+#endif
             }
         }
         else if (status == JITTER_UNDERRUN_STATE)
@@ -3575,8 +3580,10 @@ void bt_hs_spk_audio_vse_jitter_buffer_event_handler(uint8_t *p)
         {
             if (bt_hs_spk_audio_streaming_check(NULL) == WICED_ALREADY_CONNECTED)
             {
+#ifndef CODEC_SPI_DIRECT_ENABLE
                 /* The JitterBuffer is ready. Start A2DP Codec Stream */
                 bt_hs_spk_audio_audio_manager_stream_start(&bt_hs_spk_audio_cb.p_active_context->audio_config);
+#endif
             }
         }
         else if (status == JITTER_UNDERRUN_STATE)

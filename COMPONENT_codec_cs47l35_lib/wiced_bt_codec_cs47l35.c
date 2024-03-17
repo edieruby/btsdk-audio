@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -375,6 +375,26 @@ void driver_codec_write16(uint32_t address, uint16_t value)
     platform_bham_codec_marley_write_cmd(address, 2, p_spi_tx_buffer);
 }
 
+uint8_t driver_codec_write16_check(uint32_t address, uint16_t writeValue, uint16_t mask, uint16_t timeout)
+{
+    //CS47L35_TRACE("DRIVER_CODEC W16 %04X:%04X\n", (uint32_t)address, (uint32_t)value);
+    p_spi_tx_buffer[0] = (uint8_t) BYTE1(writeValue);
+    p_spi_tx_buffer[1] = (uint8_t) BYTE0(writeValue);
+
+    for (uint16_t i = 0; i < timeout; i++)
+    {
+        /* Send data with SPI */
+        platform_bham_codec_marley_write_cmd(address, 2, p_spi_tx_buffer);
+        if ((driver_codec_read16(address) & mask) == (writeValue && mask))
+        {
+            return TRUE;
+        }
+    }
+
+    CS47L35_TRACE("write %x with value %x failed in %d times\n", address, writeValue, timeout);
+    return FALSE;
+}
+
 void driver_codec_write32(uint32_t address, uint32_t value)
 {
     //CS47L35_TRACE("DRIVER_CODEC W32 %X:%X\n", (uint32_t)address, (uint32_t)value);
@@ -535,6 +555,25 @@ void wiced_bt_codec_cs47l35_set_output_volume(uint8_t left_vol, uint8_t right_vo
         return;
     }
 
+#ifdef CODEC_SPI_WRITE_CHECK_VOLUME
+    reg = (uint16_t) left_vol | (left_mute << 8) | 0x1 << 9;
+    if (driver_codec_write16_check(CODEC_DAC_DIGITAL_VOLUME_1L, reg, 0xff, SPI_WRITE_TIMEOUT))
+    {
+        CS47L35_TRACE("Write CODEC_DAC_DIGITAL_VOLUME_1L FAILED!\n");
+    }
+
+    reg = (uint16_t) right_vol | (right_mute << 8) | 0x1 << 9;
+    if (driver_codec_write16_check(CODEC_DAC_DIGITAL_VOLUME_1R, reg, 0xff, SPI_WRITE_TIMEOUT))
+    {
+        CS47L35_TRACE("Write CODEC_DAC_DIGITAL_VOLUME_1R FAILED!\n");
+    }
+
+    reg = (uint16_t) right_vol | (right_mute << 8) | 0x1 << 9;
+    if (driver_codec_write16_check(CODEC_DAC_DIGITAL_VOLUME_4L, reg, 0xff, SPI_WRITE_TIMEOUT))
+    {
+        CS47L35_TRACE("Write CODEC_DAC_DIGITAL_VOLUME_4L FAILED!\n");
+    }
+#else // else of CODEC_SPI_WRITE_CHECK_VOLUME
     reg = (uint16_t) left_vol | (left_mute << 8) | 0x1 << 9;
     driver_codec_write16(CODEC_DAC_DIGITAL_VOLUME_1L, reg);
 
@@ -543,6 +582,7 @@ void wiced_bt_codec_cs47l35_set_output_volume(uint8_t left_vol, uint8_t right_vo
 
     reg = (uint16_t) right_vol | (right_mute << 8) | 0x1 << 9;
     driver_codec_write16(CODEC_DAC_DIGITAL_VOLUME_4L, reg);
+#endif // end of CODEC_SPI_WRITE_CHECK_VOLUME
 
 #ifdef CYW43012C0
     wiced_platform_set_ptu_fifo(ptu_sel_temp);
@@ -612,12 +652,12 @@ void wiced_bt_codec_cs47l35_set_sink_mono2stereo(uint32_t audio_allocation)
 {
     uint32_t channel_num = codec_count_set_bits(audio_allocation);
 
-    if (codec_count_set_bits(audio_allocation) == 1)
+    if (channel_num == 1)
     {
         // only single channel is enabled, set the L/R as the same output
         codec_cs47l35_set_sink(CS47L35_OUTPUT_HEADSET, 1);
     }
-    else if (codec_count_set_bits(audio_allocation) == 2)
+    else if (channel_num == 2)
     {
         // set as stereo audio when two channels are enabled.
         // Currently only support stereo channels

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -31,6 +31,13 @@
  * so agrees to indemnify Cypress against all liability.
  */
 /* Main control functions */
+
+#if defined (CYW43012) && (WICED_BT_TRACE_ENABLE)
+// 43012 has most traces disabled, need to allow important ones through, before including headers
+#define WICED_BT_ALWAYS_TRACE(...)                 wiced_printf(NULL, 0, __VA_ARGS__)
+#else
+#define WICED_BT_ALWAYS_TRACE                      WICED_BT_TRACE
+#endif
 
 #include "wiced_bt_dev.h"
 #include "wiced_bt_gatt.h"
@@ -623,30 +630,30 @@ static void bt_hs_spk_control_link_key_display(void)
     uint16_t i;
     uint8_t j;
 
-    WICED_BT_TRACE("bt_hs_spk_control_link_key_display\n");
+    WICED_BT_ALWAYS_TRACE("bt_hs_spk_control_link_key_display\n");
 
     for (i = 0 ; i < BT_HS_SPK_CONTROL_LINK_KEY_COUNT ; i++)
     {
 #if BTSTACK_VER >= 0x03000001
-        WICED_BT_TRACE("%d: %B %B (BT ", i,
+        WICED_BT_ALWAYS_TRACE("%d: %B %B (BT ", i,
                 bt_hs_spk_control_cb.linkey[i].bd_addr,
                 bt_hs_spk_control_cb.linkey[i].conn_addr);
 #else
-        WICED_BT_TRACE("%d: %B (BT ", i, bt_hs_spk_control_cb.linkey[i].bd_addr);
+        WICED_BT_ALWAYS_TRACE("%d: %B (BT ", i, bt_hs_spk_control_cb.linkey[i].bd_addr);
 #endif
 
         for (j = 0 ; j < LINK_KEY_LEN ; j++)
         {
-            WICED_BT_TRACE("%02X ", bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key[j]);
+            WICED_BT_ALWAYS_TRACE("%02X ", bt_hs_spk_control_cb.linkey[i].key_data.br_edr_key[j]);
         }
 
         WICED_BT_TRACE("LTK ");
         for (j = 0 ; j < BT_OCTET16_LEN ; j++)
         {
-            WICED_BT_TRACE("%02X ", bt_hs_spk_control_cb.linkey[i].key_data.le_keys.lltk[j]);
+            WICED_BT_ALWAYS_TRACE("%02X ", bt_hs_spk_control_cb.linkey[i].key_data.le_keys.lltk[j]);
         }
 
-        WICED_BT_TRACE(")\n");
+        WICED_BT_ALWAYS_TRACE(")\n");
     }
 }
 
