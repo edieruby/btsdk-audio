@@ -226,6 +226,10 @@ static void bt_hs_spk_handsfree_sco_data_app_callback(uint32_t ltch_len, uint8_t
             ret_value = wiced_audio_sco_add_mic_stream(bt_hs_spk_handsfree_cb.p_active_context->sco_index,
                                                        p_mic_data,
                                                        (uint16_t) ltch_len);
+
+#elif defined(CYW20706A2)
+            ret_value = wiced_bt_sco_output_stream(p_mic_data,
+                                                   (uint16_t) ltch_len);
 #else
             ret_value = wiced_bt_sco_output_stream(bt_hs_spk_handsfree_cb.p_active_context->sco_index,
                                                    p_mic_data,
@@ -267,7 +271,11 @@ static void bt_hs_spk_handsfree_cb_init(void)
     }
     else
     {
+#if defined(CYW20706A2)
+        bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_I2SPCM;
+#else
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_PCM;
+#endif
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = NULL;
 #if defined(SUPPORT_MXTDM)
         // set the MXTDM1 I2S Mode
@@ -469,8 +477,12 @@ void handsfree_hfp_init(bt_hs_spk_control_config_hfp_t *p_config, BT_HS_SPK_CONT
     bt_hs_spk_handsfree_cb.p_local_volume_change_cb = p_vol_chg_cb;
 
 #ifndef BTSTACK_VER
+#if defined(CYW20706A2)
+    result = wiced_bt_rfcomm_init(p_config->rfcomm.buffer_size, p_config->rfcomm.buffer_count);
+#else
     /* Perform the rfcomm init before hf and spp start up */
     result = wiced_bt_rfcomm_set_buffer_pool(p_config->rfcomm.buffer_size, p_config->rfcomm.buffer_count);
+#endif
     if (result != WICED_BT_SUCCESS)
     {
         WICED_BT_TRACE("Error Initializing RFCOMM - HFP failed\n");
@@ -2992,7 +3004,11 @@ void bt_hs_spk_handsfree_sco_voice_path_update(wiced_bool_t uart)
     }
     else
     {
+#if defined(CYW20706A2)
+        bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_I2SPCM;
+#else
         bt_hs_spk_handsfree_cb.sco_voice_path.path = WICED_BT_SCO_OVER_PCM;
+#endif
         bt_hs_spk_handsfree_cb.sco_voice_path.p_sco_data_cb = NULL;
     }
 

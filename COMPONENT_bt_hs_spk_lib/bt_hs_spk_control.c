@@ -1078,7 +1078,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
     switch (bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].state)
     {
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_IDLE:
-#if !defined(CYW55572) && !defined(CYW55500)
+#if !defined(CYW55572) && !defined(CYW55500) && !defined(CYW20706A2)
         result = wiced_bt_connect(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
 #else
         // For CYW55572, use wiced_bt_hfp_hf_connect trigger ACL connection and starts connection encryption
@@ -1100,7 +1100,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_ACL:
         WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_ACL\n", __FUNCTION__);
-#if !defined(CYW55572) && !defined(CYW55500)
+#if !defined(CYW55572) && !defined(CYW55500) && !defined(CYW20706A2)
         hci_handle = wiced_bt_conn_handle_get(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr, BT_TRANSPORT_BR_EDR);
 
         if (hci_handle != 0xFFFF)
@@ -1114,7 +1114,7 @@ static void bt_hs_spk_control_reconnect_power_failure(void)
 
     case BT_HS_SPK_CONTROL_RECONNECT_STATE_AUTH:
         WICED_BT_TRACE("%s:Reconnect BT_HS_SPK_CONTROL_RECONNECT_STATE_AUTH\n", __FUNCTION__);
-#if !defined(CYW55572) && !defined(CYW55500)
+#if !defined(CYW55572) && !defined(CYW55500) && !defined(CYW20706A2)
         result = wiced_bt_start_encryption(bt_hs_spk_control_cb.reconnect.info[bt_hs_spk_control_cb.reconnect.idx].bdaddr);
 #else
         result = WICED_TRUE;
