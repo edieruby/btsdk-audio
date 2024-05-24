@@ -215,20 +215,33 @@ void hfp_ag_rfcomm_start_server( hfp_ag_session_cb_t *p_scb )
     else
         scn = HSP_RFCOMM_SCN;
 
-    if ( !p_scb->rfc_serv_handle )
-    {
-        rfcomm_result = wiced_bt_rfcomm_create_connection( p_scb->hf_profile_uuid, //Use connected UUID
-                                                           scn, WICED_TRUE, HFP_DEVICE_MTU, bd_addr_any,
-                                                           &p_scb->rfc_serv_handle,
-                                                           ( wiced_bt_port_mgmt_cback_t * )hfp_ag_rfcomm_control_callback );
+    WICED_BT_TRACE("[%u]hfp_ag_rfcomm_start_server: rfc_serv_handle:0x%04x\n",
+                   p_scb->app_handle,
+                   p_scb->rfc_serv_handle);
 
-        WICED_BT_TRACE( "[%u]hfp_ag_rfcomm_start_server: rfcomm_create Res: 0x%x  Port: 0x%04x UUID: 0x%04x\n",
-                        p_scb->app_handle, rfcomm_result, p_scb->rfc_serv_handle, p_scb->hf_profile_uuid );
+    if (p_scb->b_is_initiator)
+    {
+        WICED_BT_TRACE("[%u]hfp_ag_rfcomm_start_server: is_initiator:%d\n",
+                       p_scb->app_handle,
+                       p_scb->b_is_initiator);
+
+        return;
+    }
+
+    if (!p_scb->rfc_serv_handle)
+    {
+        rfcomm_result = wiced_bt_rfcomm_create_connection(p_scb->hf_profile_uuid, // Use connected UUID
+                                                          scn, WICED_TRUE, HFP_DEVICE_MTU, bd_addr_any,
+                                                          &p_scb->rfc_serv_handle,
+                                                          (wiced_bt_port_mgmt_cback_t *)hfp_ag_rfcomm_control_callback);
+
+        WICED_BT_TRACE("[%u]hfp_ag_rfcomm_start_server: rfcomm_create Res: 0x%x  Port: 0x%04x UUID: 0x%04x, scn:%d\n",
+                       p_scb->app_handle, rfcomm_result, p_scb->rfc_serv_handle, p_scb->hf_profile_uuid, scn);
     }
     else
     {
-        WICED_BT_TRACE( "[%u]hfp_ag_rfcomm_start_server: rfcomm_create Port Already set to: 0x%04x\n",
-                        p_scb->app_handle, p_scb->rfc_serv_handle );
+        WICED_BT_TRACE("[%u]hfp_ag_rfcomm_start_server: rfcomm_create Port Already set to: 0x%04x, UUID:0x%04x, scn:%d\n",
+                       p_scb->app_handle, p_scb->rfc_serv_handle, p_scb->hf_profile_uuid, scn);
     }
 }
 
@@ -374,7 +387,7 @@ void hfp_ag_rfcomm_acceptor_opened( hfp_ag_session_cb_t *p_scb )
     int      status;
 
     /* set role and connection handle */
-    p_scb->b_is_initiator  = WICED_FALSE;
+    // p_scb->b_is_initiator  = WICED_FALSE;
     p_scb->rfc_conn_handle = p_scb->rfc_serv_handle;
 
     /* get bd addr of peer */

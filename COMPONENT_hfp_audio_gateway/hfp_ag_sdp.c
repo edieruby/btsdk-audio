@@ -95,14 +95,14 @@ static void hfp_ag_sdp_cback( uint16_t sdp_status )
             else
             {
                 /* reopen server and notify app of the failure */
-                hfp_ag_rfcomm_start_server( p_scb );
+                // hfp_ag_rfcomm_start_server( p_scb );
                 hfp_ag_process_open_callback( p_scb, HCI_CONTROL_HF_STATUS_FAIL_SDP );
             }
         }
         else
         {
             /* reopen server and notify app of the failure */
-            hfp_ag_rfcomm_start_server(p_scb);
+            // hfp_ag_rfcomm_start_server(p_scb);
             hfp_ag_process_open_callback(p_scb, HCI_CONTROL_HF_STATUS_FAIL_SDP);
         }
     }

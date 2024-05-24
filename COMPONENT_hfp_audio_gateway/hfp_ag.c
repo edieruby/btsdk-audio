@@ -41,6 +41,8 @@
 #include "string.h"
 #include "wiced_transport.h"
 
+#include "puart_tx_app.h"
+
 void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status );
 
 wiced_timer_t               sdp_timer;               /* wiced bt app sdp timer */
@@ -56,12 +58,12 @@ uint8_t                     ag_num_scb;
 /* The function invoked on timeout of app seconds timer. */
 void sdp_timer_cb( uint32_t arg )
 {
-    hfp_ag_session_cb_t *p_scb = ag_p_scb;
+    hfp_ag_session_cb_t *p_scb = &ag_p_scb[1];
     uint8_t i;
 
     wiced_stop_timer( &sdp_timer );
 
-    for ( i = 0; i < ag_num_scb; i++, p_scb++ )
+    for ( i = 1; i < ag_num_scb; i++, p_scb++ )
     {
         if (p_scb->hf_profile_uuid == UUID_SERVCLASS_HF_HANDSFREE)
             break;
@@ -78,7 +80,7 @@ void sdp_timer_cb( uint32_t arg )
         }
 
         /* set role */
-        p_scb->b_is_initiator = WICED_TRUE;
+        // p_scb->b_is_initiator = WICED_TRUE;
         p_scb->hf_profile_uuid = UUID_SERVCLASS_HEADSET; //Try to search Headset service again
 
         /* do service search */
@@ -122,40 +124,52 @@ void hfp_ag_startup( hfp_ag_session_cb_t *p_scb, uint8_t num_scb, uint32_t featu
  * function is called with a HCI_CONTROL_HF_EVENT_CONNECTED. Only the service
  * level data connection is opened. The audio connection is not.
  */
-void hfp_ag_connect( BD_ADDR bd_addr )
+void hfp_ag_connect(BD_ADDR bd_addr)
 {
     hfp_ag_session_cb_t *p_scb = ag_p_scb;
     uint8_t i;
 
-    for ( i = 0; i < ag_num_scb; i++, p_scb++ )
+    for (i = 0; i < ag_num_scb; i++, p_scb++)
     {
-        if ( p_scb->state == HFP_AG_STATE_IDLE )
-            break;
+        if (p_scb->state != HFP_AG_STATE_IDLE)
+        {
+            WICED_BT_TRACE("[%u]hfp_ag_connect State:%u\n", p_scb->app_handle, p_scb->state);
+            return;
+        }
     }
 
-    if ( i == ag_num_scb )
+    for (i = 1, p_scb = &ag_p_scb[1]; i < ag_num_scb; i++, p_scb++)
     {
+        if (p_scb->state == HFP_AG_STATE_IDLE)
+        {
+            break;
+        }
+    }
+
+    if (i == ag_num_scb)
+    {
+        WICED_BT_TRACE("[%u]hfp_ag_connect index:%u\n", p_scb->app_handle, i);
         return;
     }
 
     p_scb->state = HFP_AG_STATE_OPENING;
 
     /* store parameters */
-    STREAM_TO_BDADDR(p_scb->hf_addr,bd_addr);
+    STREAM_TO_BDADDR(p_scb->hf_addr, bd_addr);
 
     /* close RFCOMM server, if listening on this SCB */
-    if ( p_scb->rfc_serv_handle )
+    if (p_scb->rfc_serv_handle)
     {
-        wiced_bt_rfcomm_remove_connection( p_scb->rfc_serv_handle, WICED_TRUE );
+        wiced_bt_rfcomm_remove_connection(p_scb->rfc_serv_handle, WICED_TRUE);
         p_scb->rfc_serv_handle = 0;
     }
 
     /* set role */
-    p_scb->b_is_initiator = WICED_TRUE;
+    // p_scb->b_is_initiator = WICED_TRUE;
     p_scb->hf_profile_uuid = UUID_SERVCLASS_HF_HANDSFREE;
 
     /* do service search */
-    hfp_ag_sdp_start_discovery( p_scb );
+    hfp_ag_sdp_start_discovery(p_scb);
 }
 
 /*
@@ -205,11 +219,16 @@ void hfp_ag_audio_open( uint16_t handle )
     /* If already open, just return success */
     if ( p_scb->b_sco_opened )
     {
-#if (BTM_WBS_INCLUDED == TRUE )
+#if (BTM_WBS_INCLUDED == TRUE)
         ap_event.audio_open.wbs_supported = p_scb->peer_supports_msbc;
         ap_event.audio_open.wbs_used = p_scb->msbc_selected;
+
+#else
+        ap_event.audio_open.wbs_supported = 0;
+        ap_event.audio_open.wbs_used = 0;
+
 #endif
-        hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_AUDIO_OPEN, handle, &ap_event );
+        hfp_ag_hci_send_ag_event(HCI_CONTROL_AG_EVENT_AUDIO_OPEN, handle, &ap_event);
         return;
     }
 
@@ -324,7 +343,7 @@ hfp_ag_session_cb_t *hfp_ag_find_scb_by_app_handle( uint16_t app_handle )
 /*
  * Send open callback event to application.
  */
-void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status )
+void hfp_ag_process_open_callback(hfp_ag_session_cb_t *p_scb, uint8_t status)
 {
     hfp_ag_open_t open;
 
@@ -333,23 +352,27 @@ void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status )
 
     WICED_BT_TRACE("hfp_ag_process_open_callback status=%d\n", status);
 
-    if ( status == HCI_CONTROL_HF_STATUS_SUCCESS )
+    if (status == HCI_CONTROL_HF_STATUS_SUCCESS)
     {
-        utl_bdcpy( open.bd_addr, p_scb->hf_addr );
-        hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, ( hfp_ag_event_t * ) &open );
+        utl_bdcpy(open.bd_addr, p_scb->hf_addr);
+        hfp_ag_hci_send_ag_event(HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, (hfp_ag_event_t *)&open);
     }
     else
     {
-        if(p_scb->b_is_initiator && p_scb->hf_profile_uuid == UUID_SERVCLASS_HF_HANDSFREE)
+        if (p_scb->b_is_initiator && p_scb->hf_profile_uuid == UUID_SERVCLASS_HF_HANDSFREE)
         {
             WICED_BT_TRACE("hfp_ag_process_open_callback: Try HSP\n");
-            wiced_start_timer( &sdp_timer, 1 );
+            wiced_start_timer(&sdp_timer, 1);
         }
         else
         {
-            utl_bdcpy( p_scb->hf_addr, (BD_ADDR_PTR) bd_addr_null );
-            hfp_ag_rfcomm_start_server( p_scb ); //Restart RFCOMM Server
-            hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, ( hfp_ag_event_t * ) &open );
+            utl_bdcpy(open.bd_addr, p_scb->hf_addr);
+
+            utl_bdcpy(p_scb->hf_addr, (BD_ADDR_PTR)bd_addr_null);
+
+            // p_scb->b_is_initiator = WICED_FALSE;
+            hfp_ag_rfcomm_start_server(p_scb); // Restart RFCOMM Server
+            hfp_ag_hci_send_ag_event(HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, (hfp_ag_event_t *)&open);
         }
     }
 }
@@ -381,40 +404,71 @@ void hfp_ag_service_level_up( hfp_ag_session_cb_t *p_scb )
  *          2 bytes  handle
  *          n bytes  data depending on event code
  */
-void hfp_ag_hci_send_ag_event( uint16_t evt, uint16_t handle, hfp_ag_event_t *p_data )
+void hfp_ag_hci_send_ag_event(uint16_t evt, uint16_t handle, hfp_ag_event_t *p_data)
 {
-    uint8_t   tx_buf[300];
-    uint8_t  *p = tx_buf;
-    int       i;
+    uint8_t tx_buf[300];
+    uint8_t *p = tx_buf;
+    int i;
+    BD_ADDR bda;
 
     WICED_BT_TRACE("[%u]hfp_ag_hci_send_ag_event: Sending Event: %u  to UART\n", handle, evt);
 
-    *p++ = ( uint8_t ) ( handle );
-    *p++ = ( uint8_t ) ( handle >> 8 );
+    *p++ = (uint8_t)(handle);
+    *p++ = (uint8_t)(handle >> 8);
 
-    switch ( evt )
+    switch (evt)
     {
-    case HCI_CONTROL_AG_EVENT_OPEN:       /* HS connection opened or connection attempt failed  */
-        for ( i = 0; i < BD_ADDR_LEN; i++ )
+    case HCI_CONTROL_AG_EVENT_OPEN: /* HS connection opened or connection attempt failed  */
+        for (i = 0; i < BD_ADDR_LEN; i++)
+        {
             *p++ = p_data->open.bd_addr[BD_ADDR_LEN - 1 - i];
+            bda[i] = p_data->open.bd_addr[BD_ADDR_LEN - 1 - i];
+        }
         *p++ = p_data->open.status;
+
+        WICED_BT_TRACE("AG open:%B\n", p_data->open.bd_addr);
+
+        puart_tx_ag_connect_open_event_app(handle, bda, p_data->open.status);
+        break;
+
+    case HCI_CONTROL_AG_EVENT_CLOSE:
+        puart_tx_ag_connect_close_event_app(handle);
         break;
 
     case HCI_CONTROL_AG_EVENT_CONNECTED: /* HS Service Level Connection is UP */
-        *p++ = ( uint8_t ) ( p_data->conn.peer_features );
-        *p++ = ( uint8_t ) ( p_data->conn.peer_features >> 8 );
+        *p++ = (uint8_t)(p_data->conn.peer_features);
+        *p++ = (uint8_t)(p_data->conn.peer_features >> 8);
+
+        puart_tx_ag_connect_connected_event_app(handle, p_data->conn.peer_features);
         break;
+
     case HCI_CONTROL_AG_EVENT_AT_CMD:
         memcpy(p, p_data->at_cmd.cmd_ptr, p_data->at_cmd.cmd_len);
         p += p_data->at_cmd.cmd_len;
+
+        puart_tx_ag_at_cmd_event_app(handle, p_data->at_cmd.cmd_ptr, p_data->at_cmd.cmd_len);
+
         break;
+
     case HCI_CONTROL_AG_EVENT_AUDIO_OPEN:
-        *p++ = ( uint8_t ) (p_data->audio_open.wbs_supported);
-        *p++ = ( uint8_t ) (p_data->audio_open.wbs_used);
+        *p++ = (uint8_t)(p_data->audio_open.wbs_supported);
+        *p++ = (uint8_t)(p_data->audio_open.wbs_used);
+
+        puart_tx_ag_audio_open_event_app(handle, p_data->audio_open.wbs_supported, p_data->audio_open.wbs_used);
+
         break;
-    default:                             /* Rest have no parameters */
+
+    case HCI_CONTROL_AG_EVENT_AUDIO_CLOSE:
+        puart_tx_ag_audio_close_event_app(handle);
+        break;
+
+    case HCI_CONTROL_AG_EVENT_CLCC_REQ:
+        puart_tx_ag_clcc_event_app(handle);
+        break;
+
+    default: /* Rest have no parameters */
         break;
     }
 
-    wiced_transport_send_data( evt, tx_buf, ( int ) ( p - tx_buf ) );
+    // wiced_transport_send_data(evt, tx_buf, (int)(p - tx_buf));
 }
