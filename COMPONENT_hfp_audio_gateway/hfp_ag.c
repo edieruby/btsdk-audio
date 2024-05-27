@@ -41,6 +41,8 @@
 #include "string.h"
 #include "wiced_transport.h"
 
+#include "puart_tx_app.h"
+
 void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status );
 
 wiced_timer_t               sdp_timer;               /* wiced bt app sdp timer */
@@ -135,6 +137,7 @@ void hfp_ag_connect( BD_ADDR bd_addr )
 
     if ( i == ag_num_scb )
     {
+        WICED_BT_TRACE("[%u]hfp_ag_connect index:%u\n", p_scb->app_handle, i);
         return;
     }
 
@@ -205,9 +208,14 @@ void hfp_ag_audio_open( uint16_t handle )
     /* If already open, just return success */
     if ( p_scb->b_sco_opened )
     {
-#if (BTM_WBS_INCLUDED == TRUE )
+#if (BTM_WBS_INCLUDED == TRUE)
         ap_event.audio_open.wbs_supported = p_scb->peer_supports_msbc;
         ap_event.audio_open.wbs_used = p_scb->msbc_selected;
+
+#else
+        ap_event.audio_open.wbs_supported = 0;
+        ap_event.audio_open.wbs_used = 0;
+
 #endif
         hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_AUDIO_OPEN, handle, &ap_event );
         return;
@@ -377,6 +385,7 @@ void hfp_ag_hci_send_ag_event( uint16_t evt, uint16_t handle, hfp_ag_event_t *p_
     uint8_t   tx_buf[300];
     uint8_t  *p = tx_buf;
     int       i;
+    BD_ADDR bda;
 
     WICED_BT_TRACE("[%u]hfp_ag_hci_send_ag_event: Sending Event: %u  to UART\n", handle, evt);
 
@@ -387,25 +396,53 @@ void hfp_ag_hci_send_ag_event( uint16_t evt, uint16_t handle, hfp_ag_event_t *p_
     {
     case HCI_CONTROL_AG_EVENT_OPEN:       /* HS connection opened or connection attempt failed  */
         for ( i = 0; i < BD_ADDR_LEN; i++ )
+        {
             *p++ = p_data->open.bd_addr[BD_ADDR_LEN - 1 - i];
+            bda[i] = p_data->open.bd_addr[BD_ADDR_LEN - 1 - i];
+        }
         *p++ = p_data->open.status;
+
+        WICED_BT_TRACE("AG open:%B\n", p_data->open.bd_addr);
+
+        puart_tx_ag_connect_open_event_app(handle, bda, p_data->open.status);
+        break;
+
+    case HCI_CONTROL_AG_EVENT_CLOSE:
+        puart_tx_ag_connect_close_event_app(handle);
         break;
 
     case HCI_CONTROL_AG_EVENT_CONNECTED: /* HS Service Level Connection is UP */
         *p++ = ( uint8_t ) ( p_data->conn.peer_features );
         *p++ = ( uint8_t ) ( p_data->conn.peer_features >> 8 );
+
+        puart_tx_ag_connect_connected_event_app(handle, p_data->conn.peer_features);
         break;
     case HCI_CONTROL_AG_EVENT_AT_CMD:
         memcpy(p, p_data->at_cmd.cmd_ptr, p_data->at_cmd.cmd_len);
         p += p_data->at_cmd.cmd_len;
+
+        puart_tx_ag_at_cmd_event_app(handle, p_data->at_cmd.cmd_ptr, p_data->at_cmd.cmd_len);
+
         break;
     case HCI_CONTROL_AG_EVENT_AUDIO_OPEN:
-        *p++ = ( uint8_t ) (p_data->audio_open.wbs_supported);
-        *p++ = ( uint8_t ) (p_data->audio_open.wbs_used);
+        *p++ = (uint8_t)(p_data->audio_open.wbs_supported);
+        *p++ = (uint8_t)(p_data->audio_open.wbs_used);
+
+        puart_tx_ag_audio_open_event_app(handle, p_data->audio_open.wbs_supported, p_data->audio_open.wbs_used);
+
         break;
-    default:                             /* Rest have no parameters */
+
+    case HCI_CONTROL_AG_EVENT_AUDIO_CLOSE:
+        puart_tx_ag_audio_close_event_app(handle);
+        break;
+
+    case HCI_CONTROL_AG_EVENT_CLCC_REQ:
+        puart_tx_ag_clcc_event_app(handle);
+        break;
+
+    default: /* Rest have no parameters */
         break;
     }
 
-    wiced_transport_send_data( evt, tx_buf, ( int ) ( p - tx_buf ) );
+    // wiced_transport_send_data(evt, tx_buf, (int)(p - tx_buf));
 }

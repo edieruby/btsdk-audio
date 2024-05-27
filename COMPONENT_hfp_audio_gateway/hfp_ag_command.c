@@ -50,8 +50,8 @@
 
 #define BTA_AG_CMD_MAX_VAL      32767       /* Maximum value is signed 16-bit value */
 #define BTA_AG_NUM_INDICATORS    7
-#define BTA_AG_CIND_INFO        "(\"call\",(0,1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"service\",(0,1)),(\"battchg\",(0-5)),(\"signal\",(0-5)),(\"roam\",(0-1))"
-static char  BTA_AG_CIND_VALUES[20] = { '0', ',' , '0' , ',' , '0' , ',' , '1' ,',','5',',' ,'5',',' ,'0'};
+#define BTA_AG_CIND_INFO "(\"call\",(0,1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"service\",(0,1)),(\"battchg\",(0-5)),(\"signal\",(0-5)),(\"roam\",(0-1))"
+static char BTA_AG_CIND_VALUES[20] = {'0', ',', '0', ',', '0', ',', '1', ',', '5', ',', '5', ',', '0'};
 
 /* enumeration of HFP AT commands matches HFP command interpreter table */
 enum
@@ -522,16 +522,35 @@ static void _handle_command_from_hf (hfp_ag_session_cb_t *p_scb, UINT16 cmd, UIN
             break;
 
         case BTA_AG_HF_CMD_CMER:
-            _send_OK_to_hf(p_scb);                          /* send OK */
-            // 3,0,0,1 or 3,0,0,0
-            if (p_arg[6] == '1')
+            _send_OK_to_hf(p_scb); /* send OK */
+
             {
-                p_scb->cmer_enabled = WICED_TRUE;
-                hfp_ag_service_level_up (p_scb);
-            }
-            else if (p_arg[6] == '0')
-            {
-                p_scb->cmer_enabled = WICED_FALSE;
+                int tem_len = strlen(p_arg) + 1;
+                char temp_arg[tem_len];
+                memset(temp_arg, 0, tem_len);
+                for (int i = 0, j = 0; i < tem_len; i++)
+                {
+                    if (p_arg[i] == ' ')
+                    {
+                        continue;
+                    }
+
+                    temp_arg[j] = p_arg[i];
+                    j += 1;
+                }
+
+                WICED_BT_TRACE("HFP AT cmd:%d arg_type:%d arg:%d temp_arg:%s\n", cmd, arg_type, int_arg, temp_arg);
+
+                // 3,0,0,1 or 3,0,0,0
+                if (temp_arg[6] == '1')
+                {
+                    p_scb->cmer_enabled = WICED_TRUE;
+                    hfp_ag_service_level_up(p_scb);
+                }
+                else if (temp_arg[6] == '0')
+                {
+                    p_scb->cmer_enabled = WICED_FALSE;
+                }
             }
             break;
 

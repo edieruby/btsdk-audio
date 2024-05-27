@@ -96,7 +96,8 @@
 #define HFP_VGM_VGS_MIN                 0
 
 #undef  BTM_WBS_INCLUDED
-#define BTM_WBS_INCLUDED                TRUE
+#define BTM_WBS_INCLUDED                FALSE
+// #define BTM_WBS_INCLUDED                TRUE
 
 /* SDP SupportedFeatures attribute bit mapping for HF.
    Table 5.4 of Hand-Free Profile 1.8 */
