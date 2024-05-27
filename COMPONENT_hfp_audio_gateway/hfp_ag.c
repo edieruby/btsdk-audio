@@ -324,33 +324,24 @@ hfp_ag_session_cb_t *hfp_ag_find_scb_by_app_handle( uint16_t app_handle )
 /*
  * Send open callback event to application.
  */
-void hfp_ag_process_open_callback( hfp_ag_session_cb_t *p_scb, uint8_t status )
+void hfp_ag_process_open_callback(hfp_ag_session_cb_t *p_scb, uint8_t status)
 {
     hfp_ag_open_t open;
 
     /* call app callback with open event */
     open.status = status;
+    utl_bdcpy(open.bd_addr, p_scb->hf_addr);
 
     WICED_BT_TRACE("hfp_ag_process_open_callback status=%d\n", status);
 
-    if ( status == HCI_CONTROL_HF_STATUS_SUCCESS )
+    if (status == HCI_CONTROL_HF_STATUS_SUCCESS)
     {
-        utl_bdcpy( open.bd_addr, p_scb->hf_addr );
-        hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, ( hfp_ag_event_t * ) &open );
+        hfp_ag_hci_send_ag_event(HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, (hfp_ag_event_t *)&open);
     }
     else
     {
-        if(p_scb->b_is_initiator && p_scb->hf_profile_uuid == UUID_SERVCLASS_HF_HANDSFREE)
-        {
-            WICED_BT_TRACE("hfp_ag_process_open_callback: Try HSP\n");
-            wiced_start_timer( &sdp_timer, 1 );
-        }
-        else
-        {
-            utl_bdcpy( p_scb->hf_addr, (BD_ADDR_PTR) bd_addr_null );
-            hfp_ag_rfcomm_start_server( p_scb ); //Restart RFCOMM Server
-            hfp_ag_hci_send_ag_event( HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, ( hfp_ag_event_t * ) &open );
-        }
+        utl_bdcpy(p_scb->hf_addr, (BD_ADDR_PTR)bd_addr_null);
+        hfp_ag_hci_send_ag_event(HCI_CONTROL_AG_EVENT_OPEN, p_scb->app_handle, (hfp_ag_event_t *)&open);
     }
 }
 
