@@ -215,9 +215,6 @@ void hfp_ag_sdp_start_discovery( hfp_ag_session_cb_t *p_scb )
 
     WICED_BT_TRACE("  initiate service discovery app_handle = %x\n",p_scb->app_handle);
 
-    /* save the p_scb in this service discovery, sdp_cback need this */
-    sdp_p_scb = p_scb;
-
     /* initiate service discovery */
     if ( !wiced_bt_sdp_service_search_attribute_request( p_scb->hf_addr, p_scb->p_sdp_discovery_db, hfp_ag_sdp_cback ) )
     {
@@ -230,6 +227,11 @@ void hfp_ag_sdp_start_discovery( hfp_ag_session_cb_t *p_scb )
             hfp_ag_rfcomm_start_server( p_scb );
             hfp_ag_process_open_callback( p_scb, HCI_CONTROL_HF_STATUS_FAIL_SDP );
         }
+    }
+    else
+    {
+        /* save the p_scb in this service discovery, sdp_cback need this */
+        sdp_p_scb = p_scb;
     }
 }
 
